@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,7 +44,7 @@ const Index = () => {
       return;
     }
 
-    // Generate a random state for CSRF protection
+    // Generate a random state for CSRF protection with platform-specific key
     const state = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     localStorage.setItem(`${platform}_oauth_state`, state);
 

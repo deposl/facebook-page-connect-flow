@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -40,9 +39,12 @@ const FacebookCallback = () => {
       }
 
       // Verify state to prevent CSRF attacks
-      const storedState = localStorage.getItem("fb_oauth_state");
+      const storedState = localStorage.getItem("facebook_oauth_state");
+      console.log("Received state:", state);
+      console.log("Stored state:", storedState);
+      
       if (state !== storedState) {
-        throw new Error("Invalid state parameter");
+        throw new Error("Invalid state parameter - this might be a security issue. Please try connecting again.");
       }
 
       // Get stored credentials
@@ -98,7 +100,7 @@ const FacebookCallback = () => {
       });
 
       // Clean up OAuth state
-      localStorage.removeItem("fb_oauth_state");
+      localStorage.removeItem("facebook_oauth_state");
       
     } catch (err) {
       console.error("OAuth callback error:", err);
