@@ -97,29 +97,52 @@ const Index = () => {
   };
 
   const handleDisconnect = async (platform: string) => {
-    // Clear localStorage for the platform
-    if (platform === 'facebook') {
-      localStorage.removeItem("fb_page_access_token");
-      localStorage.removeItem("fb_page_long_lived_token");
-      localStorage.removeItem("fb_page_id");
-      localStorage.removeItem("fb_page_name");
-      localStorage.removeItem("fb_api_data");
-    } else if (platform === 'instagram') {
-      localStorage.removeItem("ig_access_token");
-      localStorage.removeItem("ig_long_lived_token");
-      localStorage.removeItem("ig_account_id");
-      localStorage.removeItem("ig_account_name");
-      localStorage.removeItem("ig_username");
-      localStorage.removeItem("ig_api_data");
-    }
+    try {
+      // Get the connected account for this platform
+      const connectedAccount = getConnectedAccount(platform);
+      
+      if (connectedAccount) {
+        // Call the status API to disconnect
+        await updateConnectionStatus(
+          parseInt(userId), 
+          platform, 
+          connectedAccount.account_id
+        );
+        
+        console.log(`Successfully disconnected ${platform} account via API`);
+      }
 
-    // Refresh connected accounts
-    await checkConnectedAccounts(userId);
-    
-    toast({
-      title: "Disconnected",
-      description: `${platform.charAt(0).toUpperCase() + platform.slice(1)} account disconnected locally`,
-    });
+      // Clear localStorage for the platform
+      if (platform === 'facebook') {
+        localStorage.removeItem("fb_page_access_token");
+        localStorage.removeItem("fb_page_long_lived_token");
+        localStorage.removeItem("fb_page_id");
+        localStorage.removeItem("fb_page_name");
+        localStorage.removeItem("fb_api_data");
+      } else if (platform === 'instagram') {
+        localStorage.removeItem("ig_access_token");
+        localStorage.removeItem("ig_long_lived_token");
+        localStorage.removeItem("ig_account_id");
+        localStorage.removeItem("ig_account_name");
+        localStorage.removeItem("ig_username");
+        localStorage.removeItem("ig_api_data");
+      }
+
+      // Refresh connected accounts
+      await checkConnectedAccounts(userId);
+      
+      toast({
+        title: "Disconnected",
+        description: `${platform.charAt(0).toUpperCase() + platform.slice(1)} account disconnected successfully`,
+      });
+    } catch (error) {
+      console.error(`Error disconnecting ${platform}:`, error);
+      toast({
+        title: "Error",
+        description: `Failed to disconnect ${platform} account`,
+        variant: "destructive",
+      });
+    }
   };
 
   const isConnected = (platform: string) => {
