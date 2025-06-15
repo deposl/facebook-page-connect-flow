@@ -1,11 +1,147 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { Facebook } from "lucide-react";
 
 const Index = () => {
+  const [appId, setAppId] = useState("");
+  const [appSecret, setAppSecret] = useState("");
+  const [isConfigured, setIsConfigured] = useState(false);
+  const { toast } = useToast();
+
+  const handleSaveCredentials = () => {
+    if (!appId || !appSecret) {
+      toast({
+        title: "Missing Credentials",
+        description: "Please enter both App ID and App Secret",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Store credentials in localStorage for development
+    localStorage.setItem("fb_app_id", appId);
+    localStorage.setItem("fb_app_secret", appSecret);
+    setIsConfigured(true);
+    
+    toast({
+      title: "Credentials Saved",
+      description: "Facebook app credentials have been saved locally",
+    });
+  };
+
+  const initiateOAuth = () => {
+    const storedAppId = localStorage.getItem("fb_app_id");
+    if (!storedAppId) {
+      toast({
+        title: "Configuration Missing",
+        description: "Please configure your Facebook app credentials first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Generate a random state for CSRF protection
+    const state = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    localStorage.setItem("fb_oauth_state", state);
+
+    const redirectUri = `${window.location.origin}/oauth-callback/facebook`;
+    const scope = "pages_show_list,pages_manage_posts,pages_read_engagement";
+    
+    const oauthUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${storedAppId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=code&state=${state}`;
+    
+    window.location.href = oauthUrl;
+  };
+
+  const checkExistingConfig = () => {
+    const storedAppId = localStorage.getItem("fb_app_id");
+    const storedAppSecret = localStorage.getItem("fb_app_secret");
+    
+    if (storedAppId && storedAppSecret) {
+      setAppId(storedAppId);
+      setAppSecret(storedAppSecret);
+      setIsConfigured(true);
+    }
+  };
+
+  // Check for existing configuration on component mount
+  useState(() => {
+    checkExistingConfig();
+  });
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="w-full max-w-md space-y-6">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold mb-2">Facebook Page Connect</h1>
+          <p className="text-muted-foreground">Connect your Facebook page with one click</p>
+        </div>
+
+        {!isConfigured ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Configure Facebook App</CardTitle>
+              <CardDescription>
+                Enter your Facebook App credentials to enable OAuth flow
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="appId">Facebook App ID</Label>
+                <Input
+                  id="appId"
+                  type="text"
+                  value={appId}
+                  onChange={(e) => setAppId(e.target.value)}
+                  placeholder="Your Facebook App ID"
+                />
+              </div>
+              <div>
+                <Label htmlFor="appSecret">Facebook App Secret</Label>
+                <Input
+                  id="appSecret"
+                  type="password"
+                  value={appSecret}
+                  onChange={(e) => setAppSecret(e.target.value)}
+                  placeholder="Your Facebook App Secret"
+                />
+              </div>
+              <Button onClick={handleSaveCredentials} className="w-full">
+                Save Credentials
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Connect Facebook Page</CardTitle>
+              <CardDescription>
+                Click the button below to connect your Facebook page
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={initiateOAuth} className="w-full" size="lg">
+                <Facebook className="mr-2 h-4 w-4" />
+                Connect Facebook Page
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setIsConfigured(false)} 
+                className="w-full mt-2"
+              >
+                Reconfigure Credentials
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="text-xs text-muted-foreground text-center">
+          <p>Note: For production use, credentials should be stored securely on the backend.</p>
+        </div>
       </div>
     </div>
   );
