@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,6 +41,13 @@ const Index = () => {
     fetchAppCredentials();
   }, []);
 
+  // Check connected accounts whenever userId changes
+  useEffect(() => {
+    if (userId && userId.trim() !== "" && !loading) {
+      checkConnectedAccounts(userId);
+    }
+  }, [userId, loading]);
+
   const fetchAppCredentials = async () => {
     try {
       setLoading(true);
@@ -75,6 +83,7 @@ const Index = () => {
       setCheckingConnections(true);
       const accounts = await getConnectedAccounts(parseInt(userIdToCheck));
       setConnectedAccounts(accounts);
+      console.log("Connected accounts:", accounts);
     } catch (error) {
       console.error("Failed to check connected accounts:", error);
     } finally {
@@ -85,9 +94,7 @@ const Index = () => {
   const handleUserIdChange = (newUserId: string) => {
     setUserId(newUserId);
     localStorage.setItem("user_id", newUserId);
-    if (newUserId && newUserId.trim() !== "") {
-      checkConnectedAccounts(newUserId);
-    }
+    // The useEffect will automatically trigger checkConnectedAccounts
   };
 
   const handleDisconnect = async (platform: string) => {
