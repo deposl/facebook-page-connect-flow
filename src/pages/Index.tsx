@@ -1,71 +1,71 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Facebook, Instagram } from "lucide-react";
+import { Facebook, Instagram, Loader2 } from "lucide-react";
+import { getAppCredentials } from "@/utils/apiService";
 
 const Index = () => {
-  const [appId, setAppId] = useState("");
-  const [appSecret, setAppSecret] = useState("");
-  const [userId, setUserId] = useState("");
-  const [isConfigured, setIsConfigured] = useState(false);
+  const [appCredentials, setAppCredentials] = useState<{app_id: string, app_secret: string} | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string>("11");
   const { toast } = useToast();
 
-  const handleSaveCredentials = () => {
-    if (!appId || !appSecret) {
-      toast({
-        title: "Missing Credentials",
-        description: "Please enter both App ID and App Secret",
-        variant: "destructive",
-      });
-      return;
+  useEffect(() => {
+    // Get user_id from URL query params, default to 11 for testing
+    const urlParams = new URLSearchParams(window.location.search);
+    const userIdParam = urlParams.get('user_id');
+    if (userIdParam) {
+      setUserId(userIdParam);
     }
 
-    if (!userId) {
+    // Fetch app credentials on component mount
+    fetchAppCredentials();
+  }, []);
+
+  const fetchAppCredentials = async () => {
+    try {
+      setLoading(true);
+      const credentials = await getAppCredentials();
+      setAppCredentials({
+        app_id: credentials.app_id,
+        app_secret: credentials.app_secret
+      });
+      
+      // Store credentials in localStorage for the OAuth callbacks
+      localStorage.setItem("fb_app_id", credentials.app_id);
+      localStorage.setItem("fb_app_secret", credentials.app_secret);
+      localStorage.setItem("user_id", userId);
+      
       toast({
-        title: "Missing User ID",
-        description: "Please enter a User ID",
+        title: "App Credentials Loaded",
+        description: `Successfully loaded ${credentials.app_name} credentials`,
+      });
+    } catch (error) {
+      console.error("Failed to fetch app credentials:", error);
+      toast({
+        title: "Failed to Load Credentials",
+        description: "Could not fetch Facebook app credentials from API",
         variant: "destructive",
       });
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    // Store credentials in localStorage for development
-    localStorage.setItem("fb_app_id", appId);
-    localStorage.setItem("fb_app_secret", appSecret);
-    localStorage.setItem("user_id", userId);
-    setIsConfigured(true);
-    
-    toast({
-      title: "Credentials Saved",
-      description: "Facebook app credentials and User ID have been saved locally",
-    });
   };
 
   const initiateOAuth = (platform: 'facebook' | 'instagram') => {
-    const storedAppId = localStorage.getItem("fb_app_id");
-    const storedUserId = localStorage.getItem("user_id");
-    
-    if (!storedAppId) {
+    if (!appCredentials) {
       toast({
-        title: "Configuration Missing",
-        description: "Please configure your Facebook app credentials first",
+        title: "Credentials Not Loaded",
+        description: "Please wait for app credentials to load",
         variant: "destructive",
       });
       return;
     }
 
-    if (!storedUserId) {
-      toast({
-        title: "User ID Missing",
-        description: "Please enter a User ID first",
-        variant: "destructive",
-      });
-      return;
-    }
+    // Update user_id in localStorage before OAuth
+    localStorage.setItem("user_id", userId);
 
     // Generate a random state for CSRF protection with platform-specific key
     const state = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
@@ -78,28 +78,43 @@ const Index = () => {
       ? "pages_show_list,pages_manage_posts,pages_read_engagement"
       : "instagram_basic,pages_show_list";
     
-    const oauthUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${storedAppId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=code&state=${state}`;
+    const oauthUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${appCredentials.app_id}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=code&state=${state}`;
     
     window.location.href = oauthUrl;
   };
 
-  const checkExistingConfig = () => {
-    const storedAppId = localStorage.getItem("fb_app_id");
-    const storedAppSecret = localStorage.getItem("fb_app_secret");
-    const storedUserId = localStorage.getItem("user_id");
-    
-    if (storedAppId && storedAppSecret && storedUserId) {
-      setAppId(storedAppId);
-      setAppSecret(storedAppSecret);
-      setUserId(storedUserId);
-      setIsConfigured(true);
-    }
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex items-center justify-center p-6">
+            <Loader2 className="h-8 w-8 animate-spin mr-2" />
+            <span>Loading app credentials...</span>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
-  // Check for existing configuration on component mount
-  useState(() => {
-    checkExistingConfig();
-  });
+  if (!appCredentials) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-red-600">Failed to Load Credentials</CardTitle>
+            <CardDescription>
+              Could not fetch Facebook app credentials from the API
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={fetchAppCredentials} className="w-full">
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -107,97 +122,45 @@ const Index = () => {
         <div className="text-center">
           <h1 className="text-3xl font-bold mb-2">Social Media Connect</h1>
           <p className="text-muted-foreground">Connect your Facebook and Instagram pages with one click</p>
+          <p className="text-sm text-muted-foreground mt-2">User ID: {userId}</p>
         </div>
 
-        {!isConfigured ? (
+        <div className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Configure Facebook App</CardTitle>
+              <CardTitle>Connect Facebook Page</CardTitle>
               <CardDescription>
-                Enter your Facebook App credentials and User ID to enable OAuth flow for both Facebook and Instagram
+                Click the button below to connect your Facebook page
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="userId">User ID</Label>
-                <Input
-                  id="userId"
-                  type="text"
-                  value={userId}
-                  onChange={(e) => setUserId(e.target.value)}
-                  placeholder="Enter your User ID"
-                />
-              </div>
-              <div>
-                <Label htmlFor="appId">Facebook App ID</Label>
-                <Input
-                  id="appId"
-                  type="text"
-                  value={appId}
-                  onChange={(e) => setAppId(e.target.value)}
-                  placeholder="Your Facebook App ID"
-                />
-              </div>
-              <div>
-                <Label htmlFor="appSecret">Facebook App Secret</Label>
-                <Input
-                  id="appSecret"
-                  type="password"
-                  value={appSecret}
-                  onChange={(e) => setAppSecret(e.target.value)}
-                  placeholder="Your Facebook App Secret"
-                />
-              </div>
-              <Button onClick={handleSaveCredentials} className="w-full">
-                Save Credentials
+            <CardContent>
+              <Button onClick={() => initiateOAuth('facebook')} className="w-full" size="lg">
+                <Facebook className="mr-2 h-4 w-4" />
+                Connect Facebook Page
               </Button>
             </CardContent>
           </Card>
-        ) : (
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Connect Facebook Page</CardTitle>
-                <CardDescription>
-                  Click the button below to connect your Facebook page
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button onClick={() => initiateOAuth('facebook')} className="w-full" size="lg">
-                  <Facebook className="mr-2 h-4 w-4" />
-                  Connect Facebook Page
-                </Button>
-              </CardContent>
-            </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Connect Instagram Page</CardTitle>
-                <CardDescription>
-                  Click the button below to connect your Instagram business account
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button onClick={() => initiateOAuth('instagram')} className="w-full" size="lg" variant="secondary">
-                  <Instagram className="mr-2 h-4 w-4" />
-                  Connect Instagram Page
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Button 
-              variant="outline" 
-              onClick={() => setIsConfigured(false)} 
-              className="w-full"
-            >
-              Reconfigure Credentials
-            </Button>
-          </div>
-        )}
+          <Card>
+            <CardHeader>
+              <CardTitle>Connect Instagram Page</CardTitle>
+              <CardDescription>
+                Click the button below to connect your Instagram business account
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={() => initiateOAuth('instagram')} className="w-full" size="lg" variant="secondary">
+                <Instagram className="mr-2 h-4 w-4" />
+                Connect Instagram Page
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
 
         <div className="text-xs text-muted-foreground text-center">
-          <p>Note: For production use, credentials should be stored securely on the backend.</p>
+          <p>App credentials loaded from API automatically.</p>
           <p>Instagram requires a Facebook Business account and Instagram Business account.</p>
+          <p>Add ?user_id=YOUR_ID to the URL to specify a different user ID.</p>
         </div>
       </div>
     </div>

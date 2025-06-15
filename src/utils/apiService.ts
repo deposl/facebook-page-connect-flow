@@ -12,6 +12,43 @@ interface ApiData {
   app_id: string;
 }
 
+interface AppCredentials {
+  id: number;
+  app_id: string;
+  app_secret: string;
+  app_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export const getAppCredentials = async (): Promise<AppCredentials> => {
+  try {
+    const response = await fetch('https://n8n-n8n.hnxdau.easypanel.host/webhook/app', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Auth': 'Manoj'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch app credentials: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('App credentials response:', result);
+    
+    if (!result || !Array.isArray(result) || result.length === 0) {
+      throw new Error('No app credentials found');
+    }
+
+    return result[0]; // Return the first app credentials
+  } catch (error) {
+    console.error('Error fetching app credentials:', error);
+    throw error;
+  }
+};
+
 export const saveConnectionData = async (data: ApiData) => {
   try {
     const response = await fetch('https://n8n-n8n.hnxdau.easypanel.host/webhook-test/insert-update', {
