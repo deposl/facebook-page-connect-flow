@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Facebook } from "lucide-react";
+import { Facebook, Instagram } from "lucide-react";
 
 const Index = () => {
   const [appId, setAppId] = useState("");
@@ -34,7 +34,7 @@ const Index = () => {
     });
   };
 
-  const initiateOAuth = () => {
+  const initiateOAuth = (platform: 'facebook' | 'instagram') => {
     const storedAppId = localStorage.getItem("fb_app_id");
     if (!storedAppId) {
       toast({
@@ -47,10 +47,14 @@ const Index = () => {
 
     // Generate a random state for CSRF protection
     const state = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    localStorage.setItem("fb_oauth_state", state);
+    localStorage.setItem(`${platform}_oauth_state`, state);
 
-    const redirectUri = `${window.location.origin}/oauth-callback/facebook`;
-    const scope = "pages_show_list,pages_manage_posts,pages_read_engagement";
+    const redirectUri = `${window.location.origin}/oauth-callback/${platform}`;
+    
+    // Different scopes for Facebook vs Instagram
+    const scope = platform === 'facebook' 
+      ? "pages_show_list,pages_manage_posts,pages_read_engagement"
+      : "instagram_basic,pages_show_list";
     
     const oauthUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${storedAppId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=code&state=${state}`;
     
@@ -77,8 +81,8 @@ const Index = () => {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center">
-          <h1 className="text-3xl font-bold mb-2">Facebook Page Connect</h1>
-          <p className="text-muted-foreground">Connect your Facebook page with one click</p>
+          <h1 className="text-3xl font-bold mb-2">Social Media Connect</h1>
+          <p className="text-muted-foreground">Connect your Facebook and Instagram pages with one click</p>
         </div>
 
         {!isConfigured ? (
@@ -86,7 +90,7 @@ const Index = () => {
             <CardHeader>
               <CardTitle>Configure Facebook App</CardTitle>
               <CardDescription>
-                Enter your Facebook App credentials to enable OAuth flow
+                Enter your Facebook App credentials to enable OAuth flow for both Facebook and Instagram
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -116,31 +120,50 @@ const Index = () => {
             </CardContent>
           </Card>
         ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>Connect Facebook Page</CardTitle>
-              <CardDescription>
-                Click the button below to connect your Facebook page
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={initiateOAuth} className="w-full" size="lg">
-                <Facebook className="mr-2 h-4 w-4" />
-                Connect Facebook Page
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => setIsConfigured(false)} 
-                className="w-full mt-2"
-              >
-                Reconfigure Credentials
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Connect Facebook Page</CardTitle>
+                <CardDescription>
+                  Click the button below to connect your Facebook page
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button onClick={() => initiateOAuth('facebook')} className="w-full" size="lg">
+                  <Facebook className="mr-2 h-4 w-4" />
+                  Connect Facebook Page
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Connect Instagram Page</CardTitle>
+                <CardDescription>
+                  Click the button below to connect your Instagram business account
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button onClick={() => initiateOAuth('instagram')} className="w-full" size="lg" variant="secondary">
+                  <Instagram className="mr-2 h-4 w-4" />
+                  Connect Instagram Page
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Button 
+              variant="outline" 
+              onClick={() => setIsConfigured(false)} 
+              className="w-full"
+            >
+              Reconfigure Credentials
+            </Button>
+          </div>
         )}
 
         <div className="text-xs text-muted-foreground text-center">
           <p>Note: For production use, credentials should be stored securely on the backend.</p>
+          <p>Instagram requires a Facebook Business account and Instagram Business account.</p>
         </div>
       </div>
     </div>
