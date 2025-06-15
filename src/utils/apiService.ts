@@ -1,4 +1,3 @@
-
 interface ApiData {
   user_id: number;
   platform: string;
@@ -70,5 +69,29 @@ export const saveConnectionData = async (data: ApiData) => {
   } catch (error) {
     console.error('Error saving connection data:', error);
     throw error;
+  }
+};
+
+export const getConnectedAccounts = async (userId: number) => {
+  try {
+    const response = await fetch('https://n8n-n8n.hnxdau.easypanel.host/webhook/search', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Auth': 'Manoj'
+      },
+      body: JSON.stringify({ user_id: userId })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch connected accounts: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('Connected accounts response:', result);
+    return result || [];
+  } catch (error) {
+    console.error('Error fetching connected accounts:', error);
+    return [];
   }
 };

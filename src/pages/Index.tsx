@@ -1,15 +1,31 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Facebook, Instagram, Loader2 } from "lucide-react";
-import { getAppCredentials } from "@/utils/apiService";
+import { Facebook, Instagram, Loader2, CheckCircle, X } from "lucide-react";
+import { getAppCredentials, getConnectedAccounts } from "@/utils/apiService";
+
+interface ConnectedAccount {
+  user_id: number;
+  platform: string;
+  account_id: string;
+  account_name: string;
+  username?: string;
+  access_token: string;
+  long_lived_token: string;
+  expires_in: string;
+  connected_at: string;
+  app_id: string;
+}
 
 const Index = () => {
   const [appCredentials, setAppCredentials] = useState<{app_id: string, app_secret: string} | null>(null);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string>("11");
+  const [connectedAccounts, setConnectedAccounts] = useState<ConnectedAccount[]>([]);
+  const [checkingConnections, setCheckingConnections] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -52,6 +68,60 @@ const Index = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const checkConnectedAccounts = async (userIdToCheck: string) => {
+    try {
+      setCheckingConnections(true);
+      const accounts = await getConnectedAccounts(parseInt(userIdToCheck));
+      setConnectedAccounts(accounts);
+    } catch (error) {
+      console.error("Failed to check connected accounts:", error);
+    } finally {
+      setCheckingConnections(false);
+    }
+  };
+
+  const handleUserIdChange = (newUserId: string) => {
+    setUserId(newUserId);
+    localStorage.setItem("user_id", newUserId);
+    if (newUserId && newUserId.trim() !== "") {
+      checkConnectedAccounts(newUserId);
+    }
+  };
+
+  const handleDisconnect = async (platform: string) => {
+    // Clear localStorage for the platform
+    if (platform === 'facebook') {
+      localStorage.removeItem("fb_page_access_token");
+      localStorage.removeItem("fb_page_long_lived_token");
+      localStorage.removeItem("fb_page_id");
+      localStorage.removeItem("fb_page_name");
+      localStorage.removeItem("fb_api_data");
+    } else if (platform === 'instagram') {
+      localStorage.removeItem("ig_access_token");
+      localStorage.removeItem("ig_long_lived_token");
+      localStorage.removeItem("ig_account_id");
+      localStorage.removeItem("ig_account_name");
+      localStorage.removeItem("ig_username");
+      localStorage.removeItem("ig_api_data");
+    }
+
+    // Refresh connected accounts
+    await checkConnectedAccounts(userId);
+    
+    toast({
+      title: "Disconnected",
+      description: `${platform.charAt(0).toUpperCase() + platform.slice(1)} account disconnected locally`,
+    });
+  };
+
+  const isConnected = (platform: string) => {
+    return connectedAccounts.some(account => account.platform === platform);
+  };
+
+  const getConnectedAccount = (platform: string) => {
+    return connectedAccounts.find(account => account.platform === platform);
   };
 
   const initiateOAuth = (platform: 'facebook' | 'instagram') => {
@@ -122,37 +192,109 @@ const Index = () => {
         <div className="text-center">
           <h1 className="text-3xl font-bold mb-2">Social Media Connect</h1>
           <p className="text-muted-foreground">Connect your Facebook and Instagram pages with one click</p>
-          <p className="text-sm text-muted-foreground mt-2">User ID: {userId}</p>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>User Configuration</CardTitle>
+            <CardDescription>Enter your user ID to manage connections</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <Label htmlFor="userId">User ID</Label>
+              <Input
+                id="userId"
+                type="number"
+                value={userId}
+                onChange={(e) => handleUserIdChange(e.target.value)}
+                placeholder="Enter user ID"
+              />
+              {checkingConnections && (
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  Checking connections...
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Connect Facebook Page</CardTitle>
+              <CardTitle className="flex items-center">
+                {isConnected('facebook') && <CheckCircle className="h-4 w-4 text-green-600 mr-2" />}
+                Connect Facebook Page
+              </CardTitle>
               <CardDescription>
-                Click the button below to connect your Facebook page
+                {isConnected('facebook') 
+                  ? `Connected to: ${getConnectedAccount('facebook')?.account_name}`
+                  : "Click the button below to connect your Facebook page"
+                }
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button onClick={() => initiateOAuth('facebook')} className="w-full" size="lg">
-                <Facebook className="mr-2 h-4 w-4" />
-                Connect Facebook Page
-              </Button>
+              {isConnected('facebook') ? (
+                <div className="space-y-2">
+                  <Button onClick={() => initiateOAuth('facebook')} className="w-full" size="lg" variant="outline">
+                    <Facebook className="mr-2 h-4 w-4" />
+                    Reconnect Facebook Page
+                  </Button>
+                  <Button 
+                    onClick={() => handleDisconnect('facebook')} 
+                    className="w-full" 
+                    size="lg" 
+                    variant="destructive"
+                  >
+                    <X className="mr-2 h-4 w-4" />
+                    Disconnect Facebook Page
+                  </Button>
+                </div>
+              ) : (
+                <Button onClick={() => initiateOAuth('facebook')} className="w-full" size="lg">
+                  <Facebook className="mr-2 h-4 w-4" />
+                  Connect Facebook Page
+                </Button>
+              )}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Connect Instagram Page</CardTitle>
+              <CardTitle className="flex items-center">
+                {isConnected('instagram') && <CheckCircle className="h-4 w-4 text-green-600 mr-2" />}
+                Connect Instagram Page
+              </CardTitle>
               <CardDescription>
-                Click the button below to connect your Instagram business account
+                {isConnected('instagram') 
+                  ? `Connected to: @${getConnectedAccount('instagram')?.username || getConnectedAccount('instagram')?.account_name}`
+                  : "Click the button below to connect your Instagram business account"
+                }
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button onClick={() => initiateOAuth('instagram')} className="w-full" size="lg" variant="secondary">
-                <Instagram className="mr-2 h-4 w-4" />
-                Connect Instagram Page
-              </Button>
+              {isConnected('instagram') ? (
+                <div className="space-y-2">
+                  <Button onClick={() => initiateOAuth('instagram')} className="w-full" size="lg" variant="outline">
+                    <Instagram className="mr-2 h-4 w-4" />
+                    Reconnect Instagram Page
+                  </Button>
+                  <Button 
+                    onClick={() => handleDisconnect('instagram')} 
+                    className="w-full" 
+                    size="lg" 
+                    variant="destructive"
+                  >
+                    <X className="mr-2 h-4 w-4" />
+                    Disconnect Instagram Page
+                  </Button>
+                </div>
+              ) : (
+                <Button onClick={() => initiateOAuth('instagram')} className="w-full" size="lg" variant="secondary">
+                  <Instagram className="mr-2 h-4 w-4" />
+                  Connect Instagram Page
+                </Button>
+              )}
             </CardContent>
           </Card>
         </div>
