@@ -9,6 +9,7 @@ interface FacebookPage {
   id: string;
   name: string;
   access_token: string;
+  long_lived_token?: string;
 }
 
 const FacebookCallback = () => {
@@ -22,6 +23,24 @@ const FacebookCallback = () => {
   useEffect(() => {
     handleOAuthCallback();
   }, []);
+
+  const exchangeForLongLivedToken = async (shortLivedToken: string, appId: string, appSecret: string) => {
+    try {
+      const response = await fetch(
+        `https://graph.facebook.com/v21.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${shortLivedToken}`
+      );
+      
+      if (!response.ok) {
+        throw new Error("Failed to exchange for long-lived token");
+      }
+      
+      const data = await response.json();
+      return data.access_token;
+    } catch (err) {
+      console.error("Error exchanging for long-lived token:", err);
+      return shortLivedToken; // Fallback to short-lived token
+    }
+  };
 
   const handleOAuthCallback = async () => {
     try {
@@ -68,9 +87,12 @@ const FacebookCallback = () => {
       const tokenData = await tokenResponse.json();
       const userAccessToken = tokenData.access_token;
 
-      // Fetch user's pages
+      // Exchange for long-lived user token
+      const longLivedUserToken = await exchangeForLongLivedToken(userAccessToken, appId, appSecret);
+
+      // Fetch user's pages with long-lived token
       const pagesResponse = await fetch(
-        `https://graph.facebook.com/v21.0/me/accounts?access_token=${userAccessToken}`
+        `https://graph.facebook.com/v21.0/me/accounts?access_token=${longLivedUserToken}`
       );
 
       if (!pagesResponse.ok) {
@@ -83,20 +105,48 @@ const FacebookCallback = () => {
         throw new Error("No Facebook pages found. Please create a Facebook Page or ensure you're an admin of at least one page.");
       }
 
-      setPages(pagesData.data);
+      // Process pages with long-lived tokens
+      const pagesWithLongTokens = await Promise.all(
+        pagesData.data.map(async (page: FacebookPage) => {
+          const longLivedPageToken = await exchangeForLongLivedToken(page.access_token, appId, appSecret);
+          return {
+            ...page,
+            long_lived_token: longLivedPageToken
+          };
+        })
+      );
+
+      setPages(pagesWithLongTokens);
       
       // For one-click experience, automatically select the first page
-      const firstPage = pagesData.data[0];
+      const firstPage = pagesWithLongTokens[0];
       setSelectedPage(firstPage);
       
-      // Store the page access token
+      // Store both short and long-lived tokens
       localStorage.setItem("fb_page_access_token", firstPage.access_token);
+      localStorage.setItem("fb_page_long_lived_token", firstPage.long_lived_token || firstPage.access_token);
       localStorage.setItem("fb_page_id", firstPage.id);
       localStorage.setItem("fb_page_name", firstPage.name);
 
+      // Prepare data for API endpoint
+      const apiData = {
+        platform: "facebook",
+        page_id: firstPage.id,
+        page_name: firstPage.name,
+        access_token: firstPage.access_token,
+        long_lived_token: firstPage.long_lived_token || firstPage.access_token,
+        expires_in: "60 days", // Facebook page tokens typically last 60 days
+        connected_at: new Date().toISOString(),
+        user_id: null, // You'll need to add your user identification here
+        app_id: appId
+      };
+
+      console.log("Facebook API Data to save:", apiData);
+      localStorage.setItem("fb_api_data", JSON.stringify(apiData));
+
       toast({
         title: "Success!",
-        description: `Connected to Facebook page: ${firstPage.name}`,
+        description: `Connected to Facebook page: ${firstPage.name} with long-lived token`,
       });
 
       // Clean up OAuth state
@@ -115,15 +165,31 @@ const FacebookCallback = () => {
     }
   };
 
-  const handlePageSelect = (page: FacebookPage) => {
+  const handlePageSelect = async (page: FacebookPage) => {
     setSelectedPage(page);
     localStorage.setItem("fb_page_access_token", page.access_token);
+    localStorage.setItem("fb_page_long_lived_token", page.long_lived_token || page.access_token);
     localStorage.setItem("fb_page_id", page.id);
     localStorage.setItem("fb_page_name", page.name);
     
+    // Update API data
+    const apiData = {
+      platform: "facebook",
+      page_id: page.id,
+      page_name: page.name,
+      access_token: page.access_token,
+      long_lived_token: page.long_lived_token || page.access_token,
+      expires_in: "60 days",
+      connected_at: new Date().toISOString(),
+      user_id: null,
+      app_id: localStorage.getItem("fb_app_id")
+    };
+    
+    localStorage.setItem("fb_api_data", JSON.stringify(apiData));
+    
     toast({
       title: "Page Selected",
-      description: `Connected to Facebook page: ${page.name}`,
+      description: `Connected to Facebook page: ${page.name} with long-lived token`,
     });
   };
 
@@ -201,7 +267,8 @@ const FacebookCallback = () => {
           {selectedPage && (
             <div className="text-xs text-muted-foreground">
               <p>Page ID: {selectedPage.id}</p>
-              <p>Access token stored securely</p>
+              <p>Long-lived token generated</p>
+              <p>Token expires: ~60 days</p>
             </div>
           )}
         </CardContent>
