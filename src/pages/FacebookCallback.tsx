@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ const FacebookCallback = () => {
   const [error, setError] = useState<string | null>(null);
   const [pages, setPages] = useState<FacebookPage[]>([]);
   const [selectedPage, setSelectedPage] = useState<FacebookPage | null>(null);
+  const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -120,46 +122,9 @@ const FacebookCallback = () => {
 
       setPages(pagesWithLongTokens);
       
-      // For one-click experience, automatically select the first page
-      const firstPage = pagesWithLongTokens[0];
-      setSelectedPage(firstPage);
-      
-      // Store both short and long-lived tokens
-      localStorage.setItem("fb_page_access_token", firstPage.access_token);
-      localStorage.setItem("fb_page_long_lived_token", firstPage.long_lived_token || firstPage.access_token);
-      localStorage.setItem("fb_page_id", firstPage.id);
-      localStorage.setItem("fb_page_name", firstPage.name);
-
-      // Prepare data for API endpoint
-      const apiData = {
-        user_id: parseInt(userId),
-        platform: "facebook",
-        account_id: firstPage.id,
-        account_name: firstPage.name,
-        access_token: firstPage.access_token,
-        long_lived_token: firstPage.long_lived_token || firstPage.access_token,
-        expires_in: "60 days",
-        connected_at: new Date().toISOString(),
-        app_id: appId
-      };
-
-      console.log("Facebook API Data to save:", apiData);
-      localStorage.setItem("fb_api_data", JSON.stringify(apiData));
-
-      // Save to API
-      try {
-        await saveConnectionData(apiData);
-        toast({
-          title: "Success!",
-          description: `Connected to Facebook page: ${firstPage.name} and saved to database`,
-        });
-      } catch (apiError) {
-        console.error("Failed to save to API:", apiError);
-        toast({
-          title: "Connected but Save Failed",
-          description: `Connected to Facebook page but failed to save to database: ${apiError}`,
-          variant: "destructive",
-        });
+      // For single page, auto-select it
+      if (pagesWithLongTokens.length === 1) {
+        setSelectedPage(pagesWithLongTokens[0]);
       }
 
       // Clean up OAuth state
@@ -178,46 +143,72 @@ const FacebookCallback = () => {
     }
   };
 
-  const handlePageSelect = async (page: FacebookPage) => {
+  const handlePageSelect = (page: FacebookPage) => {
     setSelectedPage(page);
-    localStorage.setItem("fb_page_access_token", page.access_token);
-    localStorage.setItem("fb_page_long_lived_token", page.long_lived_token || page.access_token);
-    localStorage.setItem("fb_page_id", page.id);
-    localStorage.setItem("fb_page_name", page.name);
+  };
+
+  const handleContinue = async () => {
+    if (!selectedPage) {
+      toast({
+        title: "No Page Selected",
+        description: "Please select a Facebook page to continue",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSaving(true);
     
-    const userId = localStorage.getItem("user_id");
-    const appId = localStorage.getItem("fb_app_id");
-    
-    if (userId && appId) {
-      // Update API data
+    try {
+      // Store selected page data in localStorage
+      localStorage.setItem("fb_page_access_token", selectedPage.access_token);
+      localStorage.setItem("fb_page_long_lived_token", selectedPage.long_lived_token || selectedPage.access_token);
+      localStorage.setItem("fb_page_id", selectedPage.id);
+      localStorage.setItem("fb_page_name", selectedPage.name);
+
+      const userId = localStorage.getItem("user_id");
+      const appId = localStorage.getItem("fb_app_id");
+      
+      if (!userId || !appId) {
+        throw new Error("Missing user ID or app ID");
+      }
+
+      // Prepare data for API endpoint
       const apiData = {
         user_id: parseInt(userId),
         platform: "facebook",
-        account_id: page.id,
-        account_name: page.name,
-        access_token: page.access_token,
-        long_lived_token: page.long_lived_token || page.access_token,
+        account_id: selectedPage.id,
+        account_name: selectedPage.name,
+        access_token: selectedPage.access_token,
+        long_lived_token: selectedPage.long_lived_token || selectedPage.access_token,
         expires_in: "60 days",
         connected_at: new Date().toISOString(),
         app_id: appId
       };
-      
+
+      console.log("Facebook API Data to save:", apiData);
       localStorage.setItem("fb_api_data", JSON.stringify(apiData));
+
+      // Save to API
+      await saveConnectionData(apiData);
       
-      try {
-        await saveConnectionData(apiData);
-        toast({
-          title: "Page Selected",
-          description: `Connected to Facebook page: ${page.name} and updated in database`,
-        });
-      } catch (apiError) {
-        console.error("Failed to update API:", apiError);
-        toast({
-          title: "Selected but Update Failed",
-          description: `Page selected but failed to update database: ${apiError}`,
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Success!",
+        description: `Connected to Facebook page: ${selectedPage.name} and saved to database`,
+      });
+
+      // Navigate back to home
+      navigate("/");
+      
+    } catch (apiError) {
+      console.error("Failed to save to API:", apiError);
+      toast({
+        title: "Connection Failed",
+        description: `Failed to save connection: ${apiError}`,
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -268,27 +259,36 @@ const FacebookCallback = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {pages.length > 1 && (
-            <div>
-              <p className="text-sm font-medium mb-2">Your Facebook Pages:</p>
-              <div className="space-y-2">
-                {pages.map((page) => (
-                  <Button
-                    key={page.id}
-                    variant={selectedPage?.id === page.id ? "default" : "outline"}
-                    onClick={() => handlePageSelect(page)}
-                    className="w-full justify-start"
-                  >
-                    {page.name}
-                  </Button>
-                ))}
-              </div>
+          <div>
+            <p className="text-sm font-medium mb-2">Your Facebook Pages:</p>
+            <div className="space-y-2">
+              {pages.map((page) => (
+                <Button
+                  key={page.id}
+                  variant={selectedPage?.id === page.id ? "default" : "outline"}
+                  onClick={() => handlePageSelect(page)}
+                  className="w-full justify-start"
+                >
+                  {page.name}
+                </Button>
+              ))}
             </div>
-          )}
+          </div>
           
           <div className="pt-4 border-t">
-            <Button onClick={() => navigate("/")} className="w-full">
-              Continue
+            <Button 
+              onClick={handleContinue} 
+              className="w-full" 
+              disabled={!selectedPage || saving}
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Saving...
+                </>
+              ) : (
+                "Continue"
+              )}
             </Button>
           </div>
           
