@@ -95,3 +95,31 @@ export const getConnectedAccounts = async (userId: number) => {
     return [];
   }
 };
+
+export const updateConnectionStatus = async (userId: number, platform: string, accountId: string) => {
+  try {
+    const response = await fetch('https://n8n-n8n.hnxdau.easypanel.host/webhook-test/status', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Auth': 'Manoj'
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        platform: platform.toLowerCase(),
+        account_id: accountId
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to update connection status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('Status update response:', result);
+    return result;
+  } catch (error) {
+    console.error('Error updating connection status:', error);
+    throw error;
+  }
+};

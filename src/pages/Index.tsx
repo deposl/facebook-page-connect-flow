@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Facebook, Instagram, Loader2, CheckCircle, X } from "lucide-react";
-import { getAppCredentials, getConnectedAccounts } from "@/utils/apiService";
+import { getAppCredentials, getConnectedAccounts, updateConnectionStatus } from "@/utils/apiService";
 
 interface ConnectedAccount {
   user_id: number;
