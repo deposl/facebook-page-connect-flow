@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +19,7 @@ interface ConnectedAccount {
   expires_in: string;
   connected_at: string;
   app_id: string;
+  status?: number;
 }
 
 const Index = () => {
@@ -146,7 +148,8 @@ const Index = () => {
   };
 
   const isConnected = (platform: string) => {
-    return connectedAccounts.some(account => account.platform === platform);
+    const account = connectedAccounts.find(account => account.platform === platform);
+    return account && account.status === 1;
   };
 
   const getConnectedAccount = (platform: string) => {

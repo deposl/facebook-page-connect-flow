@@ -1,3 +1,4 @@
+
 interface ApiData {
   user_id: number;
   platform: string;
@@ -9,6 +10,7 @@ interface ApiData {
   expires_in: string;
   connected_at: string;
   app_id: string;
+  status?: number;
 }
 
 interface AppCredentials {
@@ -106,7 +108,7 @@ export const updateConnectionStatus = async (userId: number, platform: string, a
       },
       body: JSON.stringify({
         user_id: userId,
-        platform: platform.toLowerCase(),
+        platform: platform,
         account_id: accountId
       })
     });
