@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +10,7 @@ import { Facebook, Instagram } from "lucide-react";
 const Index = () => {
   const [appId, setAppId] = useState("");
   const [appSecret, setAppSecret] = useState("");
+  const [userId, setUserId] = useState("");
   const [isConfigured, setIsConfigured] = useState(false);
   const { toast } = useToast();
 
@@ -22,23 +24,44 @@ const Index = () => {
       return;
     }
 
+    if (!userId) {
+      toast({
+        title: "Missing User ID",
+        description: "Please enter a User ID",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Store credentials in localStorage for development
     localStorage.setItem("fb_app_id", appId);
     localStorage.setItem("fb_app_secret", appSecret);
+    localStorage.setItem("user_id", userId);
     setIsConfigured(true);
     
     toast({
       title: "Credentials Saved",
-      description: "Facebook app credentials have been saved locally",
+      description: "Facebook app credentials and User ID have been saved locally",
     });
   };
 
   const initiateOAuth = (platform: 'facebook' | 'instagram') => {
     const storedAppId = localStorage.getItem("fb_app_id");
+    const storedUserId = localStorage.getItem("user_id");
+    
     if (!storedAppId) {
       toast({
         title: "Configuration Missing",
         description: "Please configure your Facebook app credentials first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!storedUserId) {
+      toast({
+        title: "User ID Missing",
+        description: "Please enter a User ID first",
         variant: "destructive",
       });
       return;
@@ -63,10 +86,12 @@ const Index = () => {
   const checkExistingConfig = () => {
     const storedAppId = localStorage.getItem("fb_app_id");
     const storedAppSecret = localStorage.getItem("fb_app_secret");
+    const storedUserId = localStorage.getItem("user_id");
     
-    if (storedAppId && storedAppSecret) {
+    if (storedAppId && storedAppSecret && storedUserId) {
       setAppId(storedAppId);
       setAppSecret(storedAppSecret);
+      setUserId(storedUserId);
       setIsConfigured(true);
     }
   };
@@ -89,10 +114,20 @@ const Index = () => {
             <CardHeader>
               <CardTitle>Configure Facebook App</CardTitle>
               <CardDescription>
-                Enter your Facebook App credentials to enable OAuth flow for both Facebook and Instagram
+                Enter your Facebook App credentials and User ID to enable OAuth flow for both Facebook and Instagram
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="userId">User ID</Label>
+                <Input
+                  id="userId"
+                  type="text"
+                  value={userId}
+                  onChange={(e) => setUserId(e.target.value)}
+                  placeholder="Enter your User ID"
+                />
+              </div>
               <div>
                 <Label htmlFor="appId">Facebook App ID</Label>
                 <Input

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { saveConnectionData } from "@/utils/apiService";
 
 interface FacebookPage {
   id: string;
@@ -69,9 +70,10 @@ const FacebookCallback = () => {
       // Get stored credentials
       const appId = localStorage.getItem("fb_app_id");
       const appSecret = localStorage.getItem("fb_app_secret");
+      const userId = localStorage.getItem("user_id");
 
-      if (!appId || !appSecret) {
-        throw new Error("Missing app credentials");
+      if (!appId || !appSecret || !userId) {
+        throw new Error("Missing app credentials or user ID");
       }
 
       // Exchange code for user access token
@@ -130,24 +132,35 @@ const FacebookCallback = () => {
 
       // Prepare data for API endpoint
       const apiData = {
+        user_id: parseInt(userId),
         platform: "facebook",
-        page_id: firstPage.id,
-        page_name: firstPage.name,
+        account_id: firstPage.id,
+        account_name: firstPage.name,
         access_token: firstPage.access_token,
         long_lived_token: firstPage.long_lived_token || firstPage.access_token,
-        expires_in: "60 days", // Facebook page tokens typically last 60 days
+        expires_in: "60 days",
         connected_at: new Date().toISOString(),
-        user_id: null, // You'll need to add your user identification here
         app_id: appId
       };
 
       console.log("Facebook API Data to save:", apiData);
       localStorage.setItem("fb_api_data", JSON.stringify(apiData));
 
-      toast({
-        title: "Success!",
-        description: `Connected to Facebook page: ${firstPage.name} with long-lived token`,
-      });
+      // Save to API
+      try {
+        await saveConnectionData(apiData);
+        toast({
+          title: "Success!",
+          description: `Connected to Facebook page: ${firstPage.name} and saved to database`,
+        });
+      } catch (apiError) {
+        console.error("Failed to save to API:", apiError);
+        toast({
+          title: "Connected but Save Failed",
+          description: `Connected to Facebook page but failed to save to database: ${apiError}`,
+          variant: "destructive",
+        });
+      }
 
       // Clean up OAuth state
       localStorage.removeItem("facebook_oauth_state");
@@ -172,25 +185,40 @@ const FacebookCallback = () => {
     localStorage.setItem("fb_page_id", page.id);
     localStorage.setItem("fb_page_name", page.name);
     
-    // Update API data
-    const apiData = {
-      platform: "facebook",
-      page_id: page.id,
-      page_name: page.name,
-      access_token: page.access_token,
-      long_lived_token: page.long_lived_token || page.access_token,
-      expires_in: "60 days",
-      connected_at: new Date().toISOString(),
-      user_id: null,
-      app_id: localStorage.getItem("fb_app_id")
-    };
+    const userId = localStorage.getItem("user_id");
+    const appId = localStorage.getItem("fb_app_id");
     
-    localStorage.setItem("fb_api_data", JSON.stringify(apiData));
-    
-    toast({
-      title: "Page Selected",
-      description: `Connected to Facebook page: ${page.name} with long-lived token`,
-    });
+    if (userId && appId) {
+      // Update API data
+      const apiData = {
+        user_id: parseInt(userId),
+        platform: "facebook",
+        account_id: page.id,
+        account_name: page.name,
+        access_token: page.access_token,
+        long_lived_token: page.long_lived_token || page.access_token,
+        expires_in: "60 days",
+        connected_at: new Date().toISOString(),
+        app_id: appId
+      };
+      
+      localStorage.setItem("fb_api_data", JSON.stringify(apiData));
+      
+      try {
+        await saveConnectionData(apiData);
+        toast({
+          title: "Page Selected",
+          description: `Connected to Facebook page: ${page.name} and updated in database`,
+        });
+      } catch (apiError) {
+        console.error("Failed to update API:", apiError);
+        toast({
+          title: "Selected but Update Failed",
+          description: `Page selected but failed to update database: ${apiError}`,
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   if (loading) {

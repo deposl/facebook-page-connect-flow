@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { saveConnectionData } from "@/utils/apiService";
 
 interface InstagramAccount {
   id: string;
@@ -67,9 +68,10 @@ const InstagramCallback = () => {
       // Get stored credentials
       const appId = localStorage.getItem("fb_app_id");
       const appSecret = localStorage.getItem("fb_app_secret");
+      const userId = localStorage.getItem("user_id");
 
-      if (!appId || !appSecret) {
-        throw new Error("Missing app credentials");
+      if (!appId || !appSecret || !userId) {
+        throw new Error("Missing app credentials or user ID");
       }
 
       // Exchange code for user access token
@@ -159,25 +161,36 @@ const InstagramCallback = () => {
 
       // Prepare data for API endpoint
       const apiData = {
+        user_id: parseInt(userId),
         platform: "instagram",
         account_id: firstAccount.id,
         account_name: firstAccount.name,
         username: firstAccount.username,
         access_token: firstAccount.access_token,
         long_lived_token: firstAccount.long_lived_token || firstAccount.access_token,
-        expires_in: "60 days", // Instagram tokens typically last 60 days
+        expires_in: "60 days",
         connected_at: new Date().toISOString(),
-        user_id: null, // You'll need to add your user identification here
         app_id: appId
       };
 
       console.log("Instagram API Data to save:", apiData);
       localStorage.setItem("ig_api_data", JSON.stringify(apiData));
 
-      toast({
-        title: "Success!",
-        description: `Connected to Instagram account: @${firstAccount.username} with long-lived token`,
-      });
+      // Save to API
+      try {
+        await saveConnectionData(apiData);
+        toast({
+          title: "Success!",
+          description: `Connected to Instagram account: @${firstAccount.username} and saved to database`,
+        });
+      } catch (apiError) {
+        console.error("Failed to save to API:", apiError);
+        toast({
+          title: "Connected but Save Failed",
+          description: `Connected to Instagram account but failed to save to database: ${apiError}`,
+          variant: "destructive",
+        });
+      }
 
       // Clean up OAuth state
       localStorage.removeItem("instagram_oauth_state");
@@ -203,26 +216,41 @@ const InstagramCallback = () => {
     localStorage.setItem("ig_account_name", account.name);
     localStorage.setItem("ig_username", account.username);
     
-    // Update API data
-    const apiData = {
-      platform: "instagram",
-      account_id: account.id,
-      account_name: account.name,
-      username: account.username,
-      access_token: account.access_token,
-      long_lived_token: account.long_lived_token || account.access_token,
-      expires_in: "60 days",
-      connected_at: new Date().toISOString(),
-      user_id: null,
-      app_id: localStorage.getItem("fb_app_id")
-    };
+    const userId = localStorage.getItem("user_id");
+    const appId = localStorage.getItem("fb_app_id");
     
-    localStorage.setItem("ig_api_data", JSON.stringify(apiData));
-    
-    toast({
-      title: "Account Selected",
-      description: `Connected to Instagram account: @${account.username} with long-lived token`,
-    });
+    if (userId && appId) {
+      // Update API data
+      const apiData = {
+        user_id: parseInt(userId),
+        platform: "instagram",
+        account_id: account.id,
+        account_name: account.name,
+        username: account.username,
+        access_token: account.access_token,
+        long_lived_token: account.long_lived_token || account.access_token,
+        expires_in: "60 days",
+        connected_at: new Date().toISOString(),
+        app_id: appId
+      };
+      
+      localStorage.setItem("ig_api_data", JSON.stringify(apiData));
+      
+      try {
+        await saveConnectionData(apiData);
+        toast({
+          title: "Account Selected",
+          description: `Connected to Instagram account: @${account.username} and updated in database`,
+        });
+      } catch (apiError) {
+        console.error("Failed to update API:", apiError);
+        toast({
+          title: "Selected but Update Failed",
+          description: `Account selected but failed to update database: ${apiError}`,
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   if (loading) {
