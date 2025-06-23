@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Facebook, Instagram, Loader2, CheckCircle, X, Settings, Zap } from "lucide-react";
 import { getAppCredentials, getConnectedAccounts, updateConnectionStatus } from "@/utils/apiService";
 import BrandProfileForm from "@/components/BrandProfileForm";
+import PostingPreferencesForm from "@/components/PostingPreferencesForm";
 
 interface ConnectedAccount {
   user_id: number;
@@ -239,7 +240,7 @@ const Index = () => {
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* Left Column - User Config & Brand Profile */}
+          {/* Left Column - User Config & Settings */}
           <div className="lg:col-span-1 space-y-6">
             {/* User Configuration */}
             <Card className="shadow-sm border border-gray-200">
@@ -274,6 +275,11 @@ const Index = () => {
             {/* Brand Profile Management */}
             {userId && userId.trim() !== "" && (
               <BrandProfileForm userId={userId} />
+            )}
+
+            {/* Posting Preferences */}
+            {userId && userId.trim() !== "" && (
+              <PostingPreferencesForm userId={userId} />
             )}
           </div>
 
