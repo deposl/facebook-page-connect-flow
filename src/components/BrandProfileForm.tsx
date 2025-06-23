@@ -80,15 +80,28 @@ const BrandProfileForm = ({ userId }: BrandProfileFormProps) => {
       const result = await response.json();
       console.log('Brand profile response:', result);
       
+      // Check if result has actual data (not just empty object)
       if (result && Array.isArray(result) && result.length > 0) {
         const profile = result[0];
-        setBrandProfile({
-          user_id: profile.user_id,
-          tone: profile.tone || "",
-          voice: profile.voice || "",
-          description: profile.description || ""
-        });
-        setHasExistingProfile(true);
+        // Check if the profile has actual data (not just an empty object)
+        if (profile && profile.tone && profile.voice && profile.description) {
+          setBrandProfile({
+            user_id: profile.user_id,
+            tone: profile.tone || "",
+            voice: profile.voice || "",
+            description: profile.description || ""
+          });
+          setHasExistingProfile(true);
+        } else {
+          // Empty object or missing required fields - treat as no data
+          setBrandProfile({
+            user_id: parseInt(userId),
+            tone: "",
+            voice: "",
+            description: ""
+          });
+          setHasExistingProfile(false);
+        }
       } else {
         // No existing profile - immediately show form for creation
         setBrandProfile({

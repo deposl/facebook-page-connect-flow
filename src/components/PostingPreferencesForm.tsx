@@ -59,20 +59,36 @@ const PostingPreferencesForm = ({ userId }: PostingPreferencesFormProps) => {
       setLoading(true);
       const result = await searchPostPreference(parseInt(userId));
       
+      // Check if result has actual data (not just empty object)
       if (result && Array.isArray(result) && result.length > 0) {
         const preference = result[0];
-        const days = preference.posting_days ? preference.posting_days.split(',') : [];
-        
-        setPreferences({
-          user_id: preference.user_id,
-          posting_days: preference.posting_days || "",
-          posting_time: preference.posting_time || "10:00:00",
-          manual_review: preference.manual_review || 0,
-          notification_days: preference.notification_days || "",
-          consent: preference.consent || 0
-        });
-        setSelectedDays(days);
-        setHasExistingPreference(true);
+        // Check if the preference has actual data (not just an empty object)
+        if (preference && (preference.posting_days || preference.posting_time || preference.manual_review !== undefined)) {
+          const days = preference.posting_days ? preference.posting_days.split(',') : [];
+          
+          setPreferences({
+            user_id: preference.user_id,
+            posting_days: preference.posting_days || "",
+            posting_time: preference.posting_time || "10:00:00",
+            manual_review: preference.manual_review || 0,
+            notification_days: preference.notification_days || "",
+            consent: preference.consent || 0
+          });
+          setSelectedDays(days);
+          setHasExistingPreference(true);
+        } else {
+          // Empty object or missing required fields - treat as no data
+          setPreferences({
+            user_id: parseInt(userId),
+            posting_days: "",
+            posting_time: "10:00:00",
+            manual_review: 0,
+            notification_days: "",
+            consent: 0
+          });
+          setSelectedDays([]);
+          setHasExistingPreference(false);
+        }
       } else {
         // No existing preference - immediately show form for creation
         setPreferences({
