@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +20,7 @@ interface PostingPreference {
 
 interface PostingPreferencesFormProps {
   userId: string;
+  maxPostingDays?: number;
 }
 
 const DAYS_OF_WEEK = [
@@ -33,7 +33,7 @@ const DAYS_OF_WEEK = [
   "Sunday"
 ];
 
-const PostingPreferencesForm = ({ userId }: PostingPreferencesFormProps) => {
+const PostingPreferencesForm = ({ userId, maxPostingDays = 7 }: PostingPreferencesFormProps) => {
   const [preferences, setPreferences] = useState<PostingPreference>({
     user_id: parseInt(userId),
     posting_days: "",
@@ -123,6 +123,15 @@ const PostingPreferencesForm = ({ userId }: PostingPreferencesFormProps) => {
   const handleDayToggle = (day: string, checked: boolean) => {
     let updatedDays;
     if (checked) {
+      // Check if we're at the limit before adding
+      if (selectedDays.length >= maxPostingDays) {
+        toast({
+          title: "Selection Limit Reached",
+          description: `You can only select up to ${maxPostingDays} days with your current plan`,
+          variant: "destructive",
+        });
+        return;
+      }
       updatedDays = [...selectedDays, day];
     } else {
       updatedDays = selectedDays.filter(d => d !== day);
@@ -256,26 +265,48 @@ const PostingPreferencesForm = ({ userId }: PostingPreferencesFormProps) => {
             ? "Update your posting schedule and preferences"
             : "Set up your posting schedule and preferences"
           }
+          {maxPostingDays < 7 && (
+            <span className="block text-orange-600 text-sm mt-1">
+              Your plan allows up to {maxPostingDays} posting days
+            </span>
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Posting Days */}
         <div className="space-y-3">
-          <Label className="text-sm font-medium">Posting Days</Label>
+          <Label className="text-sm font-medium">
+            Posting Days {maxPostingDays < 7 && `(Max: ${maxPostingDays})`}
+          </Label>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {DAYS_OF_WEEK.map((day) => (
-              <div key={day} className="flex items-center space-x-2">
-                <Checkbox
-                  id={day}
-                  checked={selectedDays.includes(day)}
-                  onCheckedChange={(checked) => handleDayToggle(day, checked as boolean)}
-                />
-                <Label htmlFor={day} className="text-sm cursor-pointer">
-                  {day}
-                </Label>
-              </div>
-            ))}
+            {DAYS_OF_WEEK.map((day) => {
+              const isSelected = selectedDays.includes(day);
+              const isDisabled = !isSelected && selectedDays.length >= maxPostingDays;
+              
+              return (
+                <div key={day} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={day}
+                    checked={isSelected}
+                    disabled={isDisabled}
+                    onCheckedChange={(checked) => handleDayToggle(day, checked as boolean)}
+                    className={isDisabled ? "opacity-50" : ""}
+                  />
+                  <Label 
+                    htmlFor={day} 
+                    className={`text-sm cursor-pointer ${isDisabled ? "text-gray-400" : ""}`}
+                  >
+                    {day}
+                  </Label>
+                </div>
+              );
+            })}
           </div>
+          {maxPostingDays < 7 && selectedDays.length >= maxPostingDays && (
+            <p className="text-xs text-orange-600">
+              You've reached the maximum number of posting days for your plan
+            </p>
+          )}
         </div>
 
         {/* Posting Time */}

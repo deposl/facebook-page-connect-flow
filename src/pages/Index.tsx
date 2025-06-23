@@ -6,8 +6,10 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Facebook, Instagram, Loader2, CheckCircle, X, Settings, Zap } from "lucide-react";
 import { getAppCredentials, getConnectedAccounts, updateConnectionStatus } from "@/utils/apiService";
+import { useSellerPackage } from "@/hooks/useSellerPackage";
 import BrandProfileForm from "@/components/BrandProfileForm";
 import PostingPreferencesForm from "@/components/PostingPreferencesForm";
+import AccessRestrictionCard from "@/components/AccessRestrictionCard";
 
 interface ConnectedAccount {
   user_id: number;
@@ -30,6 +32,7 @@ const Index = () => {
   const [connectedAccounts, setConnectedAccounts] = useState<ConnectedAccount[]>([]);
   const [checkingConnections, setCheckingConnections] = useState(false);
   const { toast } = useToast();
+  const { sellerPackage, permissions, loading: packageLoading } = useSellerPackage(userId);
 
   useEffect(() => {
     // Get user_id from URL query params, default to 11 for testing
@@ -186,7 +189,7 @@ const Index = () => {
     window.location.href = oauthUrl;
   };
 
-  if (loading) {
+  if (loading || packageLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <Card className="w-full max-w-md shadow-lg">
@@ -219,6 +222,10 @@ const Index = () => {
     );
   }
 
+  if (!permissions.hasAccess) {
+    return <AccessRestrictionCard />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -231,6 +238,11 @@ const Index = () => {
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Social Media Manager</h1>
               <p className="text-gray-600">Connect and manage your social media accounts</p>
+              {sellerPackage && (
+                <p className="text-sm text-blue-600 mt-1">
+                  Current Plan: {permissions.planName}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -279,7 +291,10 @@ const Index = () => {
 
             {/* Posting Preferences */}
             {userId && userId.trim() !== "" && (
-              <PostingPreferencesForm userId={userId} />
+              <PostingPreferencesForm 
+                userId={userId} 
+                maxPostingDays={permissions.maxPostingDays}
+              />
             )}
           </div>
 
