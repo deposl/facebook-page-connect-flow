@@ -1,4 +1,3 @@
-
 interface ApiData {
   user_id: number;
   platform: string;
@@ -122,6 +121,88 @@ export const updateConnectionStatus = async (userId: number, platform: string, a
     return result;
   } catch (error) {
     console.error('Error updating connection status:', error);
+    throw error;
+  }
+};
+
+export const insertBrandProfile = async (data: {
+  user_id: number;
+  tone: string;
+  voice: string;
+  description: string;
+}) => {
+  try {
+    const response = await fetch('https://n8n-n8n.hnxdau.easypanel.host/webhook/insert-brand-profile', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Auth': 'Manoj'
+      },
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to insert brand profile: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('Insert brand profile response:', result);
+    return result;
+  } catch (error) {
+    console.error('Error inserting brand profile:', error);
+    throw error;
+  }
+};
+
+export const searchBrandProfile = async (userId: number) => {
+  try {
+    const response = await fetch('https://n8n-n8n.hnxdau.easypanel.host/webhook/search-brand-profile', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Auth': 'Manoj'
+      },
+      body: JSON.stringify({ user_id: userId })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to search brand profile: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('Search brand profile response:', result);
+    return result;
+  } catch (error) {
+    console.error('Error searching brand profile:', error);
+    throw error;
+  }
+};
+
+export const updateBrandProfile = async (data: {
+  user_id: number;
+  tone: string;
+  voice: string;
+  description: string;
+}) => {
+  try {
+    const response = await fetch('https://n8n-n8n.hnxdau.easypanel.host/webhook/update-brand-profile', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Auth': 'Manoj'
+      },
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to update brand profile: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('Update brand profile response:', result);
+    return result;
+  } catch (error) {
+    console.error('Error updating brand profile:', error);
     throw error;
   }
 };
