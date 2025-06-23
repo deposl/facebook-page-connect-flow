@@ -90,7 +90,7 @@ const BrandProfileForm = ({ userId }: BrandProfileFormProps) => {
         });
         setHasExistingProfile(true);
       } else {
-        // No existing profile
+        // No existing profile - immediately show form for creation
         setBrandProfile({
           user_id: parseInt(userId),
           tone: "",
@@ -101,6 +101,13 @@ const BrandProfileForm = ({ userId }: BrandProfileFormProps) => {
       }
     } catch (error) {
       console.error("Failed to fetch brand profile:", error);
+      // On error, also show form for creation
+      setBrandProfile({
+        user_id: parseInt(userId),
+        tone: "",
+        voice: "",
+        description: ""
+      });
       setHasExistingProfile(false);
     } finally {
       setLoading(false);
@@ -171,6 +178,7 @@ const BrandProfileForm = ({ userId }: BrandProfileFormProps) => {
     }));
   };
 
+  // Only show loading spinner during initial fetch, not when no data exists
   if (loading) {
     return (
       <Card>
@@ -182,6 +190,7 @@ const BrandProfileForm = ({ userId }: BrandProfileFormProps) => {
     );
   }
 
+  // Always show the form, whether for creation or update
   return (
     <Card>
       <CardHeader>

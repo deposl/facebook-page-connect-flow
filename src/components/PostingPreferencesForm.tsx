@@ -74,7 +74,7 @@ const PostingPreferencesForm = ({ userId }: PostingPreferencesFormProps) => {
         setSelectedDays(days);
         setHasExistingPreference(true);
       } else {
-        // No existing preference
+        // No existing preference - immediately show form for creation
         setPreferences({
           user_id: parseInt(userId),
           posting_days: "",
@@ -88,6 +88,16 @@ const PostingPreferencesForm = ({ userId }: PostingPreferencesFormProps) => {
       }
     } catch (error) {
       console.error("Failed to fetch posting preferences:", error);
+      // On error, also show form for creation
+      setPreferences({
+        user_id: parseInt(userId),
+        posting_days: "",
+        posting_time: "10:00:00",
+        manual_review: 0,
+        notification_days: "",
+        consent: 0
+      });
+      setSelectedDays([]);
       setHasExistingPreference(false);
     } finally {
       setLoading(false);
@@ -205,6 +215,7 @@ const PostingPreferencesForm = ({ userId }: PostingPreferencesFormProps) => {
     return options;
   };
 
+  // Only show loading spinner during initial fetch, not when no data exists
   if (loading) {
     return (
       <Card>
@@ -216,6 +227,7 @@ const PostingPreferencesForm = ({ userId }: PostingPreferencesFormProps) => {
     );
   }
 
+  // Always show the form, whether for creation or update
   return (
     <Card>
       <CardHeader>
