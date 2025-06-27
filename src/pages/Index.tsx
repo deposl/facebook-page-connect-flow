@@ -376,7 +376,7 @@ const Index = () => {
             </div>
           </div>
 
-          {/* Right Column - User Config, Forms & Calendar */}
+          {/* Right Column - User Config & Forms */}
           <div className="lg:col-span-2 space-y-6">
             {/* User Configuration */}
             <Card className="shadow-sm border border-gray-200">
@@ -421,13 +421,15 @@ const Index = () => {
                 />
               </div>
             )}
-
-            {/* Social Media Calendar */}
-            {userId && userId.trim() !== "" && (
-              <SocialPostsCalendar userId={userId} />
-            )}
           </div>
         </div>
+
+        {/* Full Width Social Media Calendar */}
+        {userId && userId.trim() !== "" && (
+          <div className="mt-8">
+            <SocialPostsCalendar userId={userId} />
+          </div>
+        )}
       </div>
     </div>
   );

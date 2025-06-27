@@ -4,9 +4,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, CalendarDays, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, Loader2, Check } from "lucide-react";
 import { getSocialPosts, SocialPost } from "@/utils/socialPostsService";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO, isAfter, startOfDay } from "date-fns";
 
 interface SocialPostsCalendarProps {
   userId: string;
@@ -44,6 +44,11 @@ const SocialPostsCalendar = ({ userId }: SocialPostsCalendarProps) => {
         return false;
       }
     });
+  };
+
+  const isUpcomingDate = (date: Date) => {
+    const today = startOfDay(new Date());
+    return isAfter(startOfDay(date), today) || isSameDay(startOfDay(date), today);
   };
 
   const navigateMonth = (direction: 'prev' | 'next') => {
@@ -111,16 +116,25 @@ const SocialPostsCalendar = ({ userId }: SocialPostsCalendarProps) => {
           {daysInMonth.map(date => {
             const dayPosts = getPostsForDate(date);
             const isToday = isSameDay(date, new Date());
+            const isUpcoming = isUpcomingDate(date);
             
             return (
               <div
                 key={date.toISOString()}
                 className={`min-h-[100px] border rounded-lg p-2 ${
-                  isToday ? 'bg-blue-50 border-blue-200' : 'bg-white border-gray-200'
+                  isToday 
+                    ? 'bg-blue-50 border-blue-200' 
+                    : isUpcoming 
+                      ? 'bg-yellow-50 border-yellow-200' 
+                      : 'bg-white border-gray-200'
                 }`}
               >
                 <div className={`text-sm font-medium mb-2 ${
-                  isToday ? 'text-blue-600' : 'text-gray-700'
+                  isToday 
+                    ? 'text-blue-600' 
+                    : isUpcoming 
+                      ? 'text-yellow-600' 
+                      : 'text-gray-700'
                 }`}>
                   {format(date, 'd')}
                 </div>
@@ -144,16 +158,23 @@ const SocialPostsCalendar = ({ userId }: SocialPostsCalendarProps) => {
                         </div>
                       </div>
                       
-                      <div className="flex space-x-1">
-                        {post.status === 'approved' && (
-                          <Badge variant="default" className="text-xs px-1 py-0">
-                            Approved
-                          </Badge>
+                      <div className="flex items-center space-x-2">
+                        {/* Status indicator */}
+                        {post.status === 'approved' ? (
+                          <div className="flex items-center">
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center">
+                            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                          </div>
                         )}
+                        
+                        {/* Published status */}
                         {post.published_status === 1 && (
-                          <Badge variant="secondary" className="text-xs px-1 py-0 bg-green-100 text-green-800">
-                            Published
-                          </Badge>
+                          <div className="flex items-center">
+                            <Check className="w-3 h-3 text-green-600" />
+                          </div>
                         )}
                       </div>
                     </div>
