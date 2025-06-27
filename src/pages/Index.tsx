@@ -252,53 +252,7 @@ const Index = () => {
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* Left Column - User Config & Settings */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* User Configuration */}
-            <Card className="shadow-sm border border-gray-200">
-              <CardHeader className="bg-gray-50 border-b border-gray-200">
-                <CardTitle className="flex items-center text-lg">
-                  <Settings className="h-5 w-5 mr-2 text-gray-600" />
-                  User Configuration
-                </CardTitle>
-                <CardDescription>Enter your user ID to manage connections</CardDescription>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="space-y-3">
-                  <Label htmlFor="userId" className="text-sm font-medium text-gray-700">User ID</Label>
-                  <Input
-                    id="userId"
-                    type="number"
-                    value={userId}
-                    onChange={(e) => handleUserIdChange(e.target.value)}
-                    placeholder="Enter user ID"
-                    className="h-11"
-                  />
-                  {checkingConnections && (
-                    <div className="flex items-center text-sm text-gray-500">
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Checking connections...
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Brand Profile Management */}
-            {userId && userId.trim() !== "" && (
-              <BrandProfileForm userId={userId} />
-            )}
-
-            {/* Posting Preferences */}
-            {userId && userId.trim() !== "" && (
-              <PostingPreferencesForm 
-                userId={userId} 
-                maxPostingDays={permissions.maxPostingDays}
-              />
-            )}
-          </div>
-
-          {/* Right Column - Social Media Connections */}
+          {/* Left Column - Social Media Connections */}
           <div className="lg:col-span-2 space-y-6">
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-2">Social Media Connections</h2>
@@ -419,6 +373,52 @@ const Index = () => {
                 </ul>
               </div>
             </div>
+          </div>
+
+          {/* Right Column - User Config & Settings */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* User Configuration */}
+            <Card className="shadow-sm border border-gray-200">
+              <CardHeader className="bg-gray-50 border-b border-gray-200">
+                <CardTitle className="flex items-center text-lg">
+                  <Settings className="h-5 w-5 mr-2 text-gray-600" />
+                  User Configuration
+                </CardTitle>
+                <CardDescription>Enter your user ID to manage connections</CardDescription>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="space-y-3">
+                  <Label htmlFor="userId" className="text-sm font-medium text-gray-700">User ID</Label>
+                  <Input
+                    id="userId"
+                    type="number"
+                    value={userId}
+                    onChange={(e) => handleUserIdChange(e.target.value)}
+                    placeholder="Enter user ID"
+                    className="h-11"
+                  />
+                  {checkingConnections && (
+                    <div className="flex items-center text-sm text-gray-500">
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Checking connections...
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Brand Profile Management */}
+            {userId && userId.trim() !== "" && (
+              <BrandProfileForm userId={userId} />
+            )}
+
+            {/* Posting Preferences */}
+            {userId && userId.trim() !== "" && (
+              <PostingPreferencesForm 
+                userId={userId} 
+                maxPostingDays={permissions.maxPostingDays}
+              />
+            )}
           </div>
         </div>
       </div>
