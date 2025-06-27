@@ -10,6 +10,7 @@ import { useSellerPackage } from "@/hooks/useSellerPackage";
 import BrandProfileForm from "@/components/BrandProfileForm";
 import PostingPreferencesForm from "@/components/PostingPreferencesForm";
 import AccessRestrictionCard from "@/components/AccessRestrictionCard";
+import SocialPostsCalendar from "@/components/SocialPostsCalendar";
 
 interface ConnectedAccount {
   user_id: number;
@@ -253,7 +254,7 @@ const Index = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
           {/* Left Column - Social Media Connections */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-1 space-y-6">
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-2">Social Media Connections</h2>
               <p className="text-gray-600 mb-6">Connect your Facebook and Instagram business accounts</p>
@@ -284,7 +285,7 @@ const Index = () => {
                 </CardHeader>
                 <CardContent>
                   {isConnected('facebook') ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3">
                       <Button onClick={() => initiateOAuth('facebook')} variant="outline" size="lg" className="h-12">
                         <Facebook className="mr-2 h-4 w-4" />
                         Reconnect Page
@@ -332,7 +333,7 @@ const Index = () => {
                 </CardHeader>
                 <CardContent>
                   {isConnected('instagram') ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3">
                       <Button onClick={() => initiateOAuth('instagram')} variant="outline" size="lg" className="h-12">
                         <Instagram className="mr-2 h-4 w-4" />
                         Reconnect Account
@@ -375,8 +376,8 @@ const Index = () => {
             </div>
           </div>
 
-          {/* Right Column - User Config & Settings */}
-          <div className="lg:col-span-1 space-y-6">
+          {/* Right Column - User Config, Forms & Calendar */}
+          <div className="lg:col-span-2 space-y-6">
             {/* User Configuration */}
             <Card className="shadow-sm border border-gray-200">
               <CardHeader className="bg-gray-50 border-b border-gray-200">
@@ -407,17 +408,23 @@ const Index = () => {
               </CardContent>
             </Card>
 
-            {/* Brand Profile Management */}
+            {/* Forms Row */}
             {userId && userId.trim() !== "" && (
-              <BrandProfileForm userId={userId} />
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                {/* Brand Profile Management */}
+                <BrandProfileForm userId={userId} />
+
+                {/* Posting Preferences */}
+                <PostingPreferencesForm 
+                  userId={userId} 
+                  maxPostingDays={permissions.maxPostingDays}
+                />
+              </div>
             )}
 
-            {/* Posting Preferences */}
+            {/* Social Media Calendar */}
             {userId && userId.trim() !== "" && (
-              <PostingPreferencesForm 
-                userId={userId} 
-                maxPostingDays={permissions.maxPostingDays}
-              />
+              <SocialPostsCalendar userId={userId} />
             )}
           </div>
         </div>
