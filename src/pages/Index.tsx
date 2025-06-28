@@ -1,238 +1,434 @@
 import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Facebook, Instagram, Loader2, Settings, User, Calendar, CheckCircle, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Facebook, Instagram, Loader2, CheckCircle, X, Settings, Zap } from "lucide-react";
 import { getAppCredentials, getConnectedAccounts, updateConnectionStatus } from "@/utils/apiService";
+import { useSellerPackage } from "@/hooks/useSellerPackage";
 import BrandProfileForm from "@/components/BrandProfileForm";
 import PostingPreferencesForm from "@/components/PostingPreferencesForm";
-import SocialPostsCalendar from "@/components/SocialPostsCalendar";
 import AccessRestrictionCard from "@/components/AccessRestrictionCard";
-import { useSellerPackage } from "@/hooks/useSellerPackage";
-import { getUserId } from "@/utils/userIdManager";
+import SocialPostsCalendar from "@/components/SocialPostsCalendar";
 
 interface ConnectedAccount {
+  user_id: number;
   platform: string;
   account_id: string;
   account_name: string;
-  status: number;
+  username?: string;
+  access_token: string;
+  long_lived_token: string;
+  expires_in: string;
+  connected_at: string;
+  app_id: string;
+  status?: number;
 }
 
 const Index = () => {
-  const [userId, setUserId] = useState<string>("");
+  const [appCredentials, setAppCredentials] = useState<{app_id: string, app_secret: string} | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string>("11");
   const [connectedAccounts, setConnectedAccounts] = useState<ConnectedAccount[]>([]);
-  const [loading, setLoading] = useState<{ [key: string]: boolean }>({});
+  const [checkingConnections, setCheckingConnections] = useState(false);
   const { toast } = useToast();
-
   const { sellerPackage, permissions, loading: packageLoading } = useSellerPackage(userId);
 
   useEffect(() => {
-    // Get user ID from URL params or global variable
-    const userIdFromSource = getUserId();
-    if (userIdFromSource) {
-      setUserId(userIdFromSource);
+    // Get user_id from URL query params, default to 11 for testing
+    const urlParams = new URLSearchParams(window.location.search);
+    const userIdParam = urlParams.get('user_id');
+    if (userIdParam) {
+      setUserId(userIdParam);
     }
+
+    // Fetch app credentials on component mount
+    fetchAppCredentials();
   }, []);
 
+  // Check connected accounts whenever userId changes
   useEffect(() => {
-    if (userId && userId.trim() !== "") {
-      fetchConnectedAccounts();
+    if (userId && userId.trim() !== "" && !loading) {
+      checkConnectedAccounts(userId);
     }
-  }, [userId]);
+  }, [userId, loading]);
 
-  const fetchConnectedAccounts = async () => {
+  const fetchAppCredentials = async () => {
     try {
-      setLoading(prev => ({ ...prev, connectedAccounts: true }));
-      const accounts = await getConnectedAccounts(parseInt(userId));
+      setLoading(true);
+      const credentials = await getAppCredentials();
+      setAppCredentials({
+        app_id: credentials.app_id,
+        app_secret: credentials.app_secret
+      });
+      
+      // Store credentials in localStorage for the OAuth callbacks
+      localStorage.setItem("fb_app_id", credentials.app_id);
+      localStorage.setItem("fb_app_secret", credentials.app_secret);
+      localStorage.setItem("user_id", userId);
+      
+      toast({
+        title: "App Credentials Loaded",
+        description: `Successfully loaded ${credentials.app_name} credentials`,
+      });
+    } catch (error) {
+      console.error("Failed to fetch app credentials:", error);
+      toast({
+        title: "Failed to Load Credentials",
+        description: "Could not fetch Facebook app credentials from API",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const checkConnectedAccounts = async (userIdToCheck: string) => {
+    try {
+      setCheckingConnections(true);
+      const accounts = await getConnectedAccounts(parseInt(userIdToCheck));
       setConnectedAccounts(accounts);
+      console.log("Connected accounts:", accounts);
     } catch (error) {
-      console.error("Failed to fetch connected accounts:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load connected accounts.",
-        variant: "destructive",
-      });
+      console.error("Failed to check connected accounts:", error);
     } finally {
-      setLoading(prev => ({ ...prev, connectedAccounts: false }));
+      setCheckingConnections(false);
     }
   };
 
-  const handleUserIdSubmit = () => {
-    if (userId && userId.trim() !== "") {
-      fetchConnectedAccounts();
-    } else {
-      toast({
-        title: "Error",
-        description: "Please enter a valid User ID.",
-        variant: "destructive",
-      });
-    }
+  const handleUserIdChange = (newUserId: string) => {
+    setUserId(newUserId);
+    localStorage.setItem("user_id", newUserId);
+    // The useEffect will automatically trigger checkConnectedAccounts
   };
 
-  const handleDisconnect = async (platform: string, accountId: string) => {
+  const handleDisconnect = async (platform: string) => {
     try {
-      setLoading(prev => ({ ...prev, [platform]: true }));
-      await updateConnectionStatus(parseInt(userId), platform, accountId);
-      setConnectedAccounts(prev =>
-        prev.map(account =>
-          account.platform === platform && account.account_id === accountId
-            ? { ...account, status: 0 }
-            : account
-        )
-      );
+      // Get the connected account for this platform
+      const connectedAccount = getConnectedAccount(platform);
+      
+      if (connectedAccount) {
+        // Call the status API to disconnect
+        await updateConnectionStatus(
+          parseInt(userId), 
+          platform, 
+          connectedAccount.account_id
+        );
+        
+        console.log(`Successfully disconnected ${platform} account via API`);
+      }
+
+      // Clear localStorage for the platform
+      if (platform === 'facebook') {
+        localStorage.removeItem("fb_page_access_token");
+        localStorage.removeItem("fb_page_long_lived_token");
+        localStorage.removeItem("fb_page_id");
+        localStorage.removeItem("fb_page_name");
+        localStorage.removeItem("fb_api_data");
+      } else if (platform === 'instagram') {
+        localStorage.removeItem("ig_access_token");
+        localStorage.removeItem("ig_long_lived_token");
+        localStorage.removeItem("ig_account_id");
+        localStorage.removeItem("ig_account_name");
+        localStorage.removeItem("ig_username");
+        localStorage.removeItem("ig_api_data");
+      }
+
+      // Refresh connected accounts
+      await checkConnectedAccounts(userId);
+      
       toast({
-        title: "Account Disconnected",
-        description: `Successfully disconnected ${platform} account.`,
+        title: "Disconnected",
+        description: `${platform.charAt(0).toUpperCase() + platform.slice(1)} account disconnected successfully`,
       });
     } catch (error) {
-      console.error("Failed to disconnect account:", error);
+      console.error(`Error disconnecting ${platform}:`, error);
       toast({
         title: "Error",
-        description: `Failed to disconnect ${platform} account.`,
+        description: `Failed to disconnect ${platform} account`,
         variant: "destructive",
       });
-    } finally {
-      setLoading(prev => ({ ...prev, [platform]: false }));
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="text-center py-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Social Media Management</h1>
-          <p className="text-lg text-gray-600">Connect your social accounts and manage your content</p>
-        </div>
+  const isConnected = (platform: string) => {
+    const account = connectedAccounts.find(account => account.platform === platform);
+    return account && account.status === 1;
+  };
 
-        {/* User ID Input */}
-        <Card className="shadow-sm border border-gray-200">
-          <CardHeader className="bg-gray-50 border-b border-gray-200">
-            <CardTitle className="flex items-center">
-              <User className="h-5 w-5 mr-2" />
-              User Configuration
-            </CardTitle>
-            <CardDescription>Enter your user ID to access social media features</CardDescription>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="flex gap-4 items-end">
-              <div className="flex-1">
-                <Label htmlFor="userId">User ID</Label>
-                <Input
-                  id="userId"
-                  type="text"
-                  value={userId}
-                  onChange={(e) => setUserId(e.target.value)}
-                  placeholder="Enter your user ID"
-                  className="mt-1"
-                />
-              </div>
-              <Button onClick={handleUserIdSubmit} disabled={!userId.trim()}>
-                Load Data
-              </Button>
-            </div>
+  const getConnectedAccount = (platform: string) => {
+    return connectedAccounts.find(account => account.platform === platform);
+  };
+
+  const initiateOAuth = (platform: 'facebook' | 'instagram') => {
+    if (!appCredentials) {
+      toast({
+        title: "Credentials Not Loaded",
+        description: "Please wait for app credentials to load",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Update user_id in localStorage before OAuth
+    localStorage.setItem("user_id", userId);
+
+    // Generate a random state for CSRF protection with platform-specific key
+    const state = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    localStorage.setItem(`${platform}_oauth_state`, state);
+
+    const redirectUri = `${window.location.origin}/oauth-callback/${platform}`;
+    
+    // Different scopes for Facebook vs Instagram
+    const scope = platform === 'facebook' 
+      ? "pages_show_list,pages_manage_posts,pages_read_engagement"
+      : "instagram_basic,pages_show_list";
+    
+    const oauthUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${appCredentials.app_id}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=code&state=${state}`;
+    
+    window.location.href = oauthUrl;
+  };
+
+  if (loading || packageLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md shadow-lg">
+          <CardContent className="flex items-center justify-center p-8">
+            <Loader2 className="h-8 w-8 animate-spin mr-3 text-blue-600" />
+            <span className="text-lg">Loading credentials...</span>
           </CardContent>
         </Card>
+      </div>
+    );
+  }
 
-        {userId && userId.trim() !== "" && (
-          <>
-            {/* Access Control Check */}
-            {packageLoading ? (
-              <Card>
-                <CardContent className="flex items-center justify-center p-6">
-                  <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                  <span>Loading access permissions...</span>
+  if (!appCredentials) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-red-600 text-center">Failed to Load Credentials</CardTitle>
+            <CardDescription className="text-center">
+              Could not fetch Facebook app credentials from the API
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={fetchAppCredentials} className="w-full" size="lg">
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!permissions.hasAccess) {
+    return <AccessRestrictionCard />;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 px-4 py-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center space-x-3">
+            <div className="bg-blue-600 p-2 rounded-lg">
+              <Zap className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Social Media Manager</h1>
+              <p className="text-gray-600">Connect and manage your social media accounts</p>
+              {sellerPackage && (
+                <p className="text-sm text-blue-600 mt-1">
+                  Current Plan: {permissions.planName}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* Left Column - Social Media Connections */}
+          <div className="lg:col-span-1 space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">Social Media Connections</h2>
+              <p className="text-gray-600 mb-6">Connect your Facebook and Instagram business accounts</p>
+            </div>
+
+            <div className="grid gap-6">
+              {/* Facebook Connection */}
+              <Card className="shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center text-lg">
+                    {isConnected('facebook') && <CheckCircle className="h-5 w-5 text-green-600 mr-3" />}
+                    <Facebook className="h-6 w-6 text-blue-600 mr-2" />
+                    Facebook Page
+                  </CardTitle>
+                  <CardDescription>
+                    {isConnected('facebook') 
+                      ? (
+                        <div className="flex items-center space-x-2">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Connected
+                          </span>
+                          <span>to: {getConnectedAccount('facebook')?.account_name}</span>
+                        </div>
+                      )
+                      : "Connect your Facebook business page to start managing posts"
+                    }
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {isConnected('facebook') ? (
+                    <div className="grid grid-cols-1 gap-3">
+                      <Button onClick={() => initiateOAuth('facebook')} variant="outline" size="lg" className="h-12">
+                        <Facebook className="mr-2 h-4 w-4" />
+                        Reconnect Page
+                      </Button>
+                      <Button 
+                        onClick={() => handleDisconnect('facebook')} 
+                        variant="destructive" 
+                        size="lg"
+                        className="h-12"
+                      >
+                        <X className="mr-2 h-4 w-4" />
+                        Disconnect
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button onClick={() => initiateOAuth('facebook')} className="w-full h-12 bg-blue-600 hover:bg-blue-700" size="lg">
+                      <Facebook className="mr-2 h-5 w-5" />
+                      Connect Facebook Page
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
-            ) : !permissions.hasAccess ? (
-              <AccessRestrictionCard planName={permissions.planName} />
-            ) : (
-              <>
-                {/* First Row: Social Media Connections (1/3) + Brand Profile & Posting Preferences (2/3) */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Social Media Connections - 1/3 width */}
-                  <div className="lg:col-span-1">
-                    <Card className="shadow-sm border border-gray-200">
-                      <CardHeader className="bg-gray-50 border-b border-gray-200">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-lg">Social Media Connections</CardTitle>
-                          {loading.connectedAccounts && <Loader2 className="h-4 w-4 animate-spin" />}
-                        </div>
-                        <CardDescription>Manage your connected social media accounts</CardDescription>
-                      </CardHeader>
-                      <CardContent className="p-6">
-                        <div className="space-y-4">
-                          {connectedAccounts.map(account => (
-                            <div key={account.account_id} className="flex items-center justify-between p-3 rounded-md border border-gray-200">
-                              <div className="flex items-center space-x-3">
-                                {account.platform === 'facebook' ? (
-                                  <Facebook className="w-5 h-5 text-blue-500" />
-                                ) : account.platform === 'instagram' ? (
-                                  <Instagram className="w-5 h-5 text-pink-500" />
-                                ) : (
-                                  <Settings className="w-5 h-5 text-gray-500" />
-                                )}
-                                <div>
-                                  <p className="text-sm font-medium">{account.account_name}</p>
-                                  <p className="text-xs text-gray-500">
-                                    {account.platform.charAt(0).toUpperCase() + account.platform.slice(1)}
-                                  </p>
-                                </div>
-                              </div>
-                              {account.status === 1 ? (
-                                <div className="flex items-center space-x-2">
-                                  <CheckCircle className="w-4 h-4 text-green-500" />
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleDisconnect(account.platform, account.account_id)}
-                                    disabled={loading[account.platform]}
-                                  >
-                                    {loading[account.platform] ? (
-                                      <>
-                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                        Disconnecting...
-                                      </>
-                                    ) : (
-                                      "Disconnect"
-                                    )}
-                                  </Button>
-                                </div>
-                              ) : (
-                                <div className="flex items-center space-x-2">
-                                  <XCircle className="w-4 h-4 text-red-500" />
-                                  <span className="text-xs text-red-500">Disconnected</span>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                          {connectedAccounts.length === 0 && !loading.connectedAccounts && (
-                            <div className="text-center py-4 text-gray-500">
-                              <Settings className="h-10 w-10 mx-auto mb-2 text-gray-300" />
-                              <p>No social media accounts connected</p>
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
 
-                  {/* Brand Profile and Posting Preferences - 2/3 width */}
-                  <div className="lg:col-span-2 space-y-6">
-                    <BrandProfileForm userId={userId} />
-                    <PostingPreferencesForm userId={userId} maxPostingDays={permissions.maxPostingDays} />
-                  </div>
-                </div>
+              {/* Instagram Connection */}
+              <Card className="shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center text-lg">
+                    {isConnected('instagram') && <CheckCircle className="h-5 w-5 text-green-600 mr-3" />}
+                    <Instagram className="h-6 w-6 text-pink-600 mr-2" />
+                    Instagram Business
+                  </CardTitle>
+                  <CardDescription>
+                    {isConnected('instagram') 
+                      ? (
+                        <div className="flex items-center space-x-2">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Connected
+                          </span>
+                          <span>to: @{getConnectedAccount('instagram')?.username || getConnectedAccount('instagram')?.account_name}</span>
+                        </div>
+                      )
+                      : "Connect your Instagram business account to start managing posts"
+                    }
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {isConnected('instagram') ? (
+                    <div className="grid grid-cols-1 gap-3">
+                      <Button onClick={() => initiateOAuth('instagram')} variant="outline" size="lg" className="h-12">
+                        <Instagram className="mr-2 h-4 w-4" />
+                        Reconnect Account
+                      </Button>
+                      <Button 
+                        onClick={() => handleDisconnect('instagram')} 
+                        variant="destructive" 
+                        size="lg"
+                        className="h-12"
+                      >
+                        <X className="mr-2 h-4 w-4" />
+                        Disconnect
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button 
+                      onClick={() => initiateOAuth('instagram')} 
+                      variant="secondary" 
+                      className="w-full h-12 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white" 
+                      size="lg"
+                    >
+                      <Instagram className="mr-2 h-5 w-5" />
+                      Connect Instagram Business
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
 
-                {/* Second Row: Social Media Calendar - Full Width */}
-                <div className="w-full">
-                  <SocialPostsCalendar userId={userId} />
+            {/* Info Footer */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="text-sm text-blue-800 space-y-1">
+                <p className="font-medium">📋 Requirements:</p>
+                <ul className="list-disc list-inside space-y-1 ml-2">
+                  <li>Instagram requires a Facebook Business account and Instagram Business account</li>
+                  <li>App credentials are loaded automatically from the API</li>
+                  <li>Add ?user_id=YOUR_ID to the URL to specify a different user ID</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column - User Config & Forms */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* User Configuration */}
+            <Card className="shadow-sm border border-gray-200">
+              <CardHeader className="bg-gray-50 border-b border-gray-200">
+                <CardTitle className="flex items-center text-lg">
+                  <Settings className="h-5 w-5 mr-2 text-gray-600" />
+                  User Configuration
+                </CardTitle>
+                <CardDescription>Enter your user ID to manage connections</CardDescription>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="space-y-3">
+                  <Label htmlFor="userId" className="text-sm font-medium text-gray-700">User ID</Label>
+                  <Input
+                    id="userId"
+                    type="number"
+                    value={userId}
+                    onChange={(e) => handleUserIdChange(e.target.value)}
+                    placeholder="Enter user ID"
+                    className="h-11"
+                  />
+                  {checkingConnections && (
+                    <div className="flex items-center text-sm text-gray-500">
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Checking connections...
+                    </div>
+                  )}
                 </div>
-              </>
+              </CardContent>
+            </Card>
+
+            {/* Forms Row */}
+            {userId && userId.trim() !== "" && (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                {/* Brand Profile Management */}
+                <BrandProfileForm userId={userId} />
+
+                {/* Posting Preferences */}
+                <PostingPreferencesForm 
+                  userId={userId} 
+                  maxPostingDays={permissions.maxPostingDays}
+                />
+              </div>
             )}
-          </>
+          </div>
+        </div>
+
+        {/* Full Width Social Media Calendar */}
+        {userId && userId.trim() !== "" && (
+          <div className="mt-8">
+            <SocialPostsCalendar userId={userId} />
+          </div>
         )}
       </div>
     </div>

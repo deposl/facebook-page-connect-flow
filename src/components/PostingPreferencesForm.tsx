@@ -233,12 +233,7 @@ const PostingPreferencesForm = ({ userId, maxPostingDays = 7 }: PostingPreferenc
     for (let hour = 0; hour < 24; hour++) {
       for (let minute = 0; minute < 60; minute += 30) {
         const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`;
-        
-        // Convert to 12-hour format for display
-        const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-        const ampm = hour >= 12 ? 'PM' : 'AM';
-        const displayString = `${hour12.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} ${ampm}`;
-        
+        const displayString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
         options.push({ value: timeString, label: displayString });
       }
     }
