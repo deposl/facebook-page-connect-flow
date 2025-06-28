@@ -69,7 +69,7 @@ const PostEditDialog = ({ post, open, onOpenChange, onPostUpdated }: PostEditDia
     }
   };
 
-  const updatePost = async () => {
+  const updatePost = async (newStatus?: string) => {
     if (!post) return;
 
     try {
@@ -84,7 +84,7 @@ const PostEditDialog = ({ post, open, onOpenChange, onPostUpdated }: PostEditDia
           id: post.id,
           caption: caption,
           image: post.image,
-          status: status
+          status: newStatus || status
         })
       });
 
@@ -95,13 +95,23 @@ const PostEditDialog = ({ post, open, onOpenChange, onPostUpdated }: PostEditDia
       const result = await response.json();
       console.log('Post update response:', result);
       
-      toast({
-        title: "Post Updated",
-        description: "The social media post has been updated successfully.",
-      });
+      if (newStatus) {
+        setStatus(newStatus);
+        toast({
+          title: "Post Status Updated",
+          description: `Post has been ${newStatus === 'approved' ? 'approved' : 'set to pending'} successfully.`,
+        });
+      } else {
+        toast({
+          title: "Post Updated",
+          description: "The social media post has been updated successfully.",
+        });
+      }
 
       onPostUpdated();
-      onOpenChange(false);
+      if (!newStatus) {
+        onOpenChange(false);
+      }
     } catch (error) {
       console.error('Error updating post:', error);
       toast({
@@ -115,7 +125,11 @@ const PostEditDialog = ({ post, open, onOpenChange, onPostUpdated }: PostEditDia
   };
 
   const handleApprove = () => {
-    setStatus('approved');
+    updatePost('approved');
+  };
+
+  const handleDisapprove = () => {
+    updatePost('pending');
   };
 
   const addEmojiToCaption = (emoji: string) => {
@@ -128,7 +142,7 @@ const PostEditDialog = ({ post, open, onOpenChange, onPostUpdated }: PostEditDia
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
             <span>Social Media Post Details</span>
@@ -158,7 +172,7 @@ const PostEditDialog = ({ post, open, onOpenChange, onPostUpdated }: PostEditDia
               <img
                 src={post.image}
                 alt={post.product_name}
-                className="max-w-md max-h-80 rounded-lg object-cover border shadow-lg"
+                className="max-w-lg max-h-96 rounded-lg object-cover border shadow-lg"
               />
             </div>
             <div className="text-center">
@@ -216,9 +230,32 @@ const PostEditDialog = ({ post, open, onOpenChange, onPostUpdated }: PostEditDia
             <>
               {status === 'approved' ? (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <span className="text-green-800 font-medium">Post Approved</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                      <span className="text-green-800 font-medium">Post Approved</span>
+                    </div>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50">
+                          Disapprove Post
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Disapprove Post</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to disapprove this post? It will be set back to pending status.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleDisapprove} className="bg-red-600 hover:bg-red-700">
+                            Disapprove
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                   <p className="text-sm text-green-600 mt-1">
                     This post has been approved and is ready for publishing.
@@ -332,7 +369,7 @@ const PostEditDialog = ({ post, open, onOpenChange, onPostUpdated }: PostEditDia
             </Button>
             {!isPostInPast && (
               <Button 
-                onClick={updatePost}
+                onClick={() => updatePost()}
                 disabled={loading}
                 className="bg-blue-600 hover:bg-blue-700"
               >
