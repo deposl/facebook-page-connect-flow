@@ -240,7 +240,7 @@ const SocialPostsCalendar = ({ userId }: SocialPostsCalendarProps) => {
                             )}
                           </div>
 
-                          {/* Social Media Icons */}
+                          {/* Social Media Icons based on connections */}
                           <div className="flex items-center space-x-1">
                             {connectedPlatforms.facebook && (
                               <Facebook className="w-3 h-3 text-blue-600" />

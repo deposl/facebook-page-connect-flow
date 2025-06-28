@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Check, X, Clock, Loader2, Smile } from "lucide-react";
+import { Check, X, Clock, Loader2, Smile, ThumbsUp, ThumbsDown } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SocialPost } from "@/utils/socialPostsService";
 import { useToast } from "@/hooks/use-toast";
@@ -24,6 +24,7 @@ const PostEditDialog = ({ post, open, onOpenChange, onPostUpdated }: PostEditDia
   const [caption, setCaption] = useState("");
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
+  const [approveLoading, setApproveLoading] = useState(false);
   const { toast } = useToast();
 
   // Common emojis for social media posts
@@ -114,8 +115,50 @@ const PostEditDialog = ({ post, open, onOpenChange, onPostUpdated }: PostEditDia
     }
   };
 
-  const handleApprove = () => {
-    setStatus('approved');
+  const handleApproveDisapprove = async (newStatus: string) => {
+    if (!post) return;
+
+    try {
+      setApproveLoading(true);
+      const response = await fetch('https://n8n-n8n.hnxdau.easypanel.host/webhook/update-social-post', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Auth': 'Manoj'
+        },
+        body: JSON.stringify({
+          id: post.id,
+          caption: caption,
+          image: post.image,
+          status: newStatus
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to ${newStatus === 'approved' ? 'approve' : 'disapprove'} post: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Post status update response:', result);
+      
+      setStatus(newStatus);
+      
+      toast({
+        title: newStatus === 'approved' ? "Post Approved" : "Post Disapproved",
+        description: `The post has been ${newStatus === 'approved' ? 'approved' : 'disapproved'} successfully.`,
+      });
+
+      onPostUpdated();
+    } catch (error) {
+      console.error(`Error ${newStatus === 'approved' ? 'approving' : 'disapproving'} post:`, error);
+      toast({
+        title: "Update Failed",
+        description: `Failed to ${newStatus === 'approved' ? 'approve' : 'disapprove'} the post. Please try again.`,
+        variant: "destructive",
+      });
+    } finally {
+      setApproveLoading(false);
+    }
   };
 
   const addEmojiToCaption = (emoji: string) => {
@@ -128,7 +171,7 @@ const PostEditDialog = ({ post, open, onOpenChange, onPostUpdated }: PostEditDia
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
             <span>Social Media Post Details</span>
@@ -158,11 +201,11 @@ const PostEditDialog = ({ post, open, onOpenChange, onPostUpdated }: PostEditDia
               <img
                 src={post.image}
                 alt={post.product_name}
-                className="max-w-md max-h-80 rounded-lg object-cover border shadow-lg"
+                className="max-w-lg max-h-96 rounded-lg object-cover border shadow-lg"
               />
             </div>
             <div className="text-center">
-              <h3 className="text-lg font-semibold">{post.product_name}</h3>
+              <h3 className="text-xl font-semibold">{post.product_name}</h3>
               <p className="text-sm text-gray-500">Scheduled for: {post.date}</p>
             </div>
           </div>
@@ -216,9 +259,30 @@ const PostEditDialog = ({ post, open, onOpenChange, onPostUpdated }: PostEditDia
             <>
               {status === 'approved' ? (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <span className="text-green-800 font-medium">Post Approved</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                      <span className="text-green-800 font-medium">Post Approved</span>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      className="border-red-200 text-red-700 hover:bg-red-50"
+                      onClick={() => handleApproveDisapprove('pending')}
+                      disabled={approveLoading}
+                    >
+                      {approveLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                          Disapproving...
+                        </>
+                      ) : (
+                        <>
+                          <ThumbsDown className="w-4 h-4 mr-1" />
+                          Disapprove
+                        </>
+                      )}
+                    </Button>
                   </div>
                   <p className="text-sm text-green-600 mt-1">
                     This post has been approved and is ready for publishing.
@@ -231,27 +295,24 @@ const PostEditDialog = ({ post, open, onOpenChange, onPostUpdated }: PostEditDia
                       <div className="w-3 h-3 bg-red-500 rounded-full"></div>
                       <span className="text-yellow-800 font-medium">Post Pending Approval</span>
                     </div>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button size="sm" className="bg-green-600 hover:bg-green-700">
-                          Approve Post
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Approve Post</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Are you sure you want to approve this post? Once approved, it will be ready for publishing.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={handleApprove}>
-                            Approve
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    <Button 
+                      size="sm" 
+                      className="bg-green-600 hover:bg-green-700"
+                      onClick={() => handleApproveDisapprove('approved')}
+                      disabled={approveLoading}
+                    >
+                      {approveLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                          Approving...
+                        </>
+                      ) : (
+                        <>
+                          <ThumbsUp className="w-4 h-4 mr-1" />
+                          Approve
+                        </>
+                      )}
+                    </Button>
                   </div>
                   <p className="text-sm text-yellow-600 mt-1">
                     This post requires approval before it can be published.
