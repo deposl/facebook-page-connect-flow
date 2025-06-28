@@ -1,9 +1,11 @@
+
 import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, CalendarDays, Loader2, Check } from "lucide-react";
+import { Facebook, Instagram } from "lucide-react";
 import { getSocialPosts, SocialPost } from "@/utils/socialPostsService";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO, isAfter, startOfDay } from "date-fns";
 import PostEditDialog from "./PostEditDialog";
@@ -12,9 +14,15 @@ interface SocialPostsCalendarProps {
   userId: string;
 }
 
+interface SocialConnection {
+  platform: string;
+  status: number;
+}
+
 const SocialPostsCalendar = ({ userId }: SocialPostsCalendarProps) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [posts, setPosts] = useState<SocialPost[]>([]);
+  const [socialConnections, setSocialConnections] = useState<SocialConnection[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedPost, setSelectedPost] = useState<SocialPost | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -22,6 +30,7 @@ const SocialPostsCalendar = ({ userId }: SocialPostsCalendarProps) => {
   useEffect(() => {
     if (userId && userId.trim() !== "") {
       fetchSocialPosts();
+      fetchSocialConnections();
     }
   }, [userId]);
 
@@ -35,6 +44,44 @@ const SocialPostsCalendar = ({ userId }: SocialPostsCalendarProps) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchSocialConnections = async () => {
+    try {
+      const response = await fetch('https://n8n-n8n.hnxdau.easypanel.host/webhook/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Auth': 'Manoj'
+        },
+        body: JSON.stringify({ user_id: parseInt(userId) })
+      });
+
+      if (response.ok) {
+        const connections = await response.json();
+        setSocialConnections(connections || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch social connections:", error);
+    }
+  };
+
+  const getConnectedPlatforms = () => {
+    const connected = {
+      facebook: false,
+      instagram: false
+    };
+
+    socialConnections.forEach(connection => {
+      if (connection.platform === 'facebook' && connection.status === 1) {
+        connected.facebook = true;
+      }
+      if (connection.platform === 'instagram' && connection.status === 1) {
+        connected.instagram = true;
+      }
+    });
+
+    return connected;
   };
 
   const handlePostClick = (post: SocialPost) => {
@@ -75,6 +122,7 @@ const SocialPostsCalendar = ({ userId }: SocialPostsCalendarProps) => {
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  const connectedPlatforms = getConnectedPlatforms();
 
   return (
     <>
@@ -171,24 +219,36 @@ const SocialPostsCalendar = ({ userId }: SocialPostsCalendarProps) => {
                           </div>
                         </div>
                         
-                        <div className="flex items-center space-x-2">
-                          {/* Status indicator */}
-                          {post.status === 'approved' ? (
-                            <div className="flex items-center">
-                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                            </div>
-                          ) : (
-                            <div className="flex items-center">
-                              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                            </div>
-                          )}
-                          
-                          {/* Published status */}
-                          {post.published_status === 1 && (
-                            <div className="flex items-center">
-                              <Check className="w-3 h-3 text-green-600" />
-                            </div>
-                          )}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            {/* Status indicator */}
+                            {post.status === 'approved' ? (
+                              <div className="flex items-center">
+                                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                              </div>
+                            ) : (
+                              <div className="flex items-center">
+                                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                              </div>
+                            )}
+                            
+                            {/* Published status */}
+                            {post.published_status === 1 && (
+                              <div className="flex items-center">
+                                <Check className="w-3 h-3 text-green-600" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Social Media Icons */}
+                          <div className="flex items-center space-x-1">
+                            {connectedPlatforms.facebook && (
+                              <Facebook className="w-3 h-3 text-blue-600" />
+                            )}
+                            {connectedPlatforms.instagram && (
+                              <Instagram className="w-3 h-3 text-pink-600" />
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}

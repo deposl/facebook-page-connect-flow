@@ -7,9 +7,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Check, X, Clock, Loader2 } from "lucide-react";
+import { Check, X, Clock, Loader2, Smile } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SocialPost } from "@/utils/socialPostsService";
 import { useToast } from "@/hooks/use-toast";
+import { parseISO, isBefore, startOfDay } from "date-fns";
 
 interface PostEditDialogProps {
   post: SocialPost | null;
@@ -24,12 +26,48 @@ const PostEditDialog = ({ post, open, onOpenChange, onPostUpdated }: PostEditDia
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
+  // Common emojis for social media posts
+  const commonEmojis = [
+    '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇',
+    '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚',
+    '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩',
+    '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣',
+    '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬',
+    '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗',
+    '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯',
+    '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐',
+    '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠', '😈',
+    '👿', '👹', '👺', '🤡', '💩', '👻', '💀', '☠️', '👽', '👾',
+    '🤖', '🎃', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿',
+    '😾', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎',
+    '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟',
+    '☮️', '✝️', '☪️', '🕉️', '☸️', '✡️', '🔯', '🕎', '☯️', '☦️',
+    '🛐', '⛎', '♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏',
+    '♐', '♑', '♒', '♓', '🆔', '⚛️', '🉑', '☢️', '☣️', '📴',
+    '📳', '🈶', '🈚', '🈸', '🈺', '🈷️', '✴️', '🆚', '💮', '🉐',
+    '㊙️', '㊗️', '🈴', '🈵', '🈹', '🈲', '🅰️', '🅱️', '🆎', '🆑',
+    '🅾️', '🆘', '❌', '⭕', '🛑', '⛔', '📛', '🚫', '💯', '💢',
+    '♨️', '🚷', '🚯', '🚳', '🚱', '🔞', '📵', '🚭', '❗', '❕',
+    '❓', '❔', '‼️', '⁉️', '🔅', '🔆', '〽️', '⚠️', '🚸', '🔱'
+  ];
+
   useEffect(() => {
     if (post) {
       setCaption(post.caption);
       setStatus(post.status);
     }
   }, [post]);
+
+  const isPastPost = () => {
+    if (!post) return false;
+    try {
+      const postDate = parseISO(post.date);
+      const today = startOfDay(new Date());
+      return isBefore(postDate, today);
+    } catch {
+      return false;
+    }
+  };
 
   const updatePost = async () => {
     if (!post) return;
@@ -80,14 +118,20 @@ const PostEditDialog = ({ post, open, onOpenChange, onPostUpdated }: PostEditDia
     setStatus('approved');
   };
 
+  const addEmojiToCaption = (emoji: string) => {
+    setCaption(prev => prev + emoji);
+  };
+
   if (!post) return null;
+
+  const isPostInPast = isPastPost();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
-            <span>Edit Social Media Post</span>
+            <span>Social Media Post Details</span>
             {post.published_status === 1 ? (
               <Badge className="bg-green-100 text-green-800">
                 <Check className="w-3 h-3 mr-1" />
@@ -99,83 +143,122 @@ const PostEditDialog = ({ post, open, onOpenChange, onPostUpdated }: PostEditDia
                 Not Published
               </Badge>
             )}
+            {isPostInPast && (
+              <Badge variant="secondary" className="bg-gray-100 text-gray-600">
+                Past Post
+              </Badge>
+            )}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Product Info */}
-          <div className="flex items-start space-x-4">
-            <img
-              src={post.image}
-              alt={post.product_name}
-              className="w-24 h-24 rounded-lg object-cover border"
-            />
-            <div className="flex-1">
+          {/* Product Info with Large Image */}
+          <div className="flex flex-col space-y-4">
+            <div className="flex justify-center">
+              <img
+                src={post.image}
+                alt={post.product_name}
+                className="max-w-md max-h-80 rounded-lg object-cover border shadow-lg"
+              />
+            </div>
+            <div className="text-center">
               <h3 className="text-lg font-semibold">{post.product_name}</h3>
-              <p className="text-sm text-gray-500">Post ID: {post.id}</p>
               <p className="text-sm text-gray-500">Scheduled for: {post.date}</p>
             </div>
           </div>
 
           {/* Caption Editor */}
           <div className="space-y-2">
-            <Label htmlFor="caption">Post Caption</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="caption">Post Caption</Label>
+              {!isPostInPast && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Smile className="w-4 h-4 mr-1" />
+                      Add Emoji
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80">
+                    <div className="grid grid-cols-8 gap-2 max-h-60 overflow-y-auto">
+                      {commonEmojis.map((emoji, index) => (
+                        <button
+                          key={index}
+                          onClick={() => addEmojiToCaption(emoji)}
+                          className="p-2 hover:bg-gray-100 rounded text-lg transition-colors"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
             <Textarea
               id="caption"
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
               placeholder="Enter your post caption with emojis..."
               className="min-h-[200px] resize-none"
+              readOnly={isPostInPast}
             />
             <p className="text-xs text-gray-500">
-              Tip: You can copy and paste emojis directly into the caption
+              {isPostInPast 
+                ? "This post is from the past and cannot be edited." 
+                : "Tip: You can copy and paste emojis directly into the caption or use the emoji picker above"
+              }
             </p>
           </div>
 
           {/* Status Management */}
-          {status === 'approved' ? (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                <span className="text-green-800 font-medium">Post Approved</span>
-              </div>
-              <p className="text-sm text-green-600 mt-1">
-                This post has been approved and is ready for publishing.
-              </p>
-            </div>
-          ) : (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                  <span className="text-yellow-800 font-medium">Post Pending Approval</span>
+          {!isPostInPast && (
+            <>
+              {status === 'approved' ? (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <span className="text-green-800 font-medium">Post Approved</span>
+                  </div>
+                  <p className="text-sm text-green-600 mt-1">
+                    This post has been approved and is ready for publishing.
+                  </p>
                 </div>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button size="sm" className="bg-green-600 hover:bg-green-700">
-                      Approve Post
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Approve Post</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Are you sure you want to approve this post? Once approved, it will be ready for publishing.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleApprove}>
-                        Approve
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-              <p className="text-sm text-yellow-600 mt-1">
-                This post requires approval before it can be published.
-              </p>
-            </div>
+              ) : (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                      <span className="text-yellow-800 font-medium">Post Pending Approval</span>
+                    </div>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="sm" className="bg-green-600 hover:bg-green-700">
+                          Approve Post
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Approve Post</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to approve this post? Once approved, it will be ready for publishing.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleApprove}>
+                            Approve
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                  <p className="text-sm text-yellow-600 mt-1">
+                    This post requires approval before it can be published.
+                  </p>
+                </div>
+              )}
+            </>
           )}
 
           {/* Post Details Table */}
@@ -189,10 +272,6 @@ const PostEditDialog = ({ post, open, onOpenChange, onPostUpdated }: PostEditDia
                 </TableRow>
               </TableHeader>
               <TableBody>
-                <TableRow>
-                  <TableCell className="font-medium">Product ID</TableCell>
-                  <TableCell>{post.product_id}</TableCell>
-                </TableRow>
                 <TableRow>
                   <TableCell className="font-medium">Day of Week</TableCell>
                   <TableCell>{post.dayof}</TableCell>
@@ -249,22 +328,24 @@ const PostEditDialog = ({ post, open, onOpenChange, onPostUpdated }: PostEditDia
               onClick={() => onOpenChange(false)}
               disabled={loading}
             >
-              Cancel
+              {isPostInPast ? 'Close' : 'Cancel'}
             </Button>
-            <Button 
-              onClick={updatePost}
-              disabled={loading}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Updating...
-                </>
-              ) : (
-                'Update Post'
-              )}
-            </Button>
+            {!isPostInPast && (
+              <Button 
+                onClick={updatePost}
+                disabled={loading}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  'Update Post'
+                )}
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>
