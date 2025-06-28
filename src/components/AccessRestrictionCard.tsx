@@ -3,7 +3,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Lock, ExternalLink } from "lucide-react";
 
-const AccessRestrictionCard = () => {
+interface AccessRestrictionCardProps {
+  planName?: string;
+}
+
+const AccessRestrictionCard = ({ planName = 'Unknown Plan' }: AccessRestrictionCardProps) => {
   const handleUpgrade = () => {
     window.open('https://www.zada.lk/seller/seller-packages', '_blank');
   };
@@ -17,7 +21,7 @@ const AccessRestrictionCard = () => {
           </div>
           <CardTitle className="text-orange-800">Access Restricted</CardTitle>
           <CardDescription className="text-orange-700">
-            Your current plan does not allow access to the Social Media Automation Tool. Please upgrade your plan.
+            Your current plan ({planName}) does not allow access to the Social Media Automation Tool. Please upgrade your plan.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-6">
